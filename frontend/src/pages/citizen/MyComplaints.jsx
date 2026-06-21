@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { getMyComplaints, deleteComplaint } from '../../services/complaintService';
 import StatusBadge from '../../components/complaints/StatusBadge';
 
-const TABS = ['All', 'Pending', 'In Progress', 'Resolved', 'Closed'];
+const TABS = ['All', 'Pending', 'In Progress', 'Citizen Verification Pending', 'Resolved', 'Reopened', 'Closed'];
 
 const CATEGORY_LABELS = {
   roads: 'Roads', bridges: 'Bridges', buildings: 'Buildings',
@@ -50,13 +50,15 @@ function MyComplaints() {
   const statusCounts = {
     pending: complaints.filter((c) => c.status === 'pending').length,
     in_progress: complaints.filter((c) => c.status === 'in_progress').length,
+    citizen_verification_pending: complaints.filter((c) => c.status === 'citizen_verification_pending' || c.status === 'awaiting_citizen_response').length,
     resolved: complaints.filter((c) => c.status === 'resolved').length,
+    reopened: complaints.filter((c) => c.status === 'reopened').length,
     closed: complaints.filter((c) => c.status === 'closed').length,
   };
 
   const filtered = activeTab === 'All'
     ? complaints
-    : complaints.filter((c) => c.status === activeTab.toLowerCase().replace(' ', '_'));
+    : complaints.filter((c) => c.status === activeTab.toLowerCase().replace(/\s+/g, '_'));
 
   if (loading) {
     return (
@@ -78,7 +80,7 @@ function MyComplaints() {
 
       <div className="flex flex-wrap gap-3 mb-6">
         {Object.entries({ All: complaints.length, ...statusCounts }).map(([key, count]) => {
-          const tabKey = key === 'in_progress' ? 'In Progress' : key.charAt(0).toUpperCase() + key.slice(1);
+          const tabKey = key.includes('_') ? key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : key.charAt(0).toUpperCase() + key.slice(1);
           const label = key === 'All' ? 'All' : tabKey;
           return (
             <div key={key} className="bg-white border rounded-lg px-4 py-2 text-center min-w-[100px]">

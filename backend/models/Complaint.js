@@ -17,7 +17,7 @@ const complaintSchema = new mongoose.Schema({
   ward: { type: String, required: true },
   village: { type: String, required: true },
   status: {
-    type: String, enum: ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'closed'], default: 'pending',
+    type: String, enum: ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'citizen_verification_pending', 'reopened', 'awaiting_citizen_response', 'closed'], default: 'pending',
   },
   priority: {
     type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium',
@@ -27,7 +27,14 @@ const complaintSchema = new mongoose.Schema({
   upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   upvoteCount: { type: Number, default: 0 },
   rejectionReason: { type: String, default: '' },
+  resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   resolvedAt: { type: Date },
+  resolutionRemarks: { type: String, default: '' },
+  resolutionImages: [{ type: String }],
+  verifiedByCitizen: { type: Boolean, default: false },
+  verifiedAt: { type: Date },
+  citizenFeedback: { type: String, default: '' },
+  closedAutomatically: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

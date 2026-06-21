@@ -60,6 +60,8 @@ function WardDashboard() {
     pending: complaints.filter((c) => c.status === 'pending').length,
     inProgress: complaints.filter((c) => c.status === 'in_progress').length,
     resolved: complaints.filter((c) => c.status === 'resolved').length,
+    verificationPending: complaints.filter((c) => c.status === 'citizen_verification_pending' || c.status === 'awaiting_citizen_response').length,
+    reopened: complaints.filter((c) => c.status === 'reopened').length,
   };
 
   const handleUpdate = async (e) => {
@@ -69,6 +71,7 @@ function WardDashboard() {
       status: form.status.value,
     };
     if (payload.status === 'rejected') payload.rejectionReason = form.reason.value;
+    if (payload.status === 'resolved') payload.resolutionRemarks = form.resolutionRemarks.value;
     if (form.assign.value) payload.assignedTo = form.assign.value;
     try {
       const res = await updateStatus(modal._id, payload);
@@ -96,11 +99,13 @@ function WardDashboard() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Ward Dashboard</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {[
-          { label: 'Total Complaints', value: stats.total, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Total', value: stats.total, color: 'text-blue-600 bg-blue-50' },
           { label: 'Pending', value: stats.pending, color: 'text-yellow-600 bg-yellow-50' },
           { label: 'In Progress', value: stats.inProgress, color: 'text-orange-600 bg-orange-50' },
+          { label: 'Verification Pending', value: stats.verificationPending, color: 'text-purple-600 bg-purple-50' },
+          { label: 'Reopened', value: stats.reopened, color: 'text-red-600 bg-red-50' },
           { label: 'Resolved', value: stats.resolved, color: 'text-green-600 bg-green-50' },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
@@ -227,7 +232,7 @@ function WardDashboard() {
                   defaultValue={modal.status}
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  {COMPLAINT_STATUSES.map((s) => (
+                  {COMPLAINT_STATUSES.filter((s) => !['citizen_verification_pending', 'awaiting_citizen_response', 'closed'].includes(s.value)).map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
@@ -243,10 +248,19 @@ function WardDashboard() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resolution Remarks</label>
+                <textarea
+                  name="resolutionRemarks"
+                  rows={2}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  placeholder="Describe the resolution (required for resolved status)"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
                 <textarea
                   name="reason"
-                  rows={3}
+                  rows={2}
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                   placeholder="Required if rejecting"
                 />

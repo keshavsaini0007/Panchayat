@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ThumbsUp, MapPin, Calendar, User, X, ChevronLeft, Send, ExternalLink } from 'lucide-react';
+import { ThumbsUp, MapPin, Calendar, User, X, ChevronLeft, Send, ExternalLink, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import toast from 'react-hot-toast';
-import { getComplaintById, upvoteComplaint, addComment, updateStatus } from '../../services/complaintService';
+import { getComplaintById, upvoteComplaint, addComment, updateStatus, verifyComplaint, reopenComplaint } from '../../services/complaintService';
 import useAuthStore from '../../store/authStore';
-import { COMPLAINT_STATUSES } from '../../utils/constants';
+import { COMPLAINT_STATUSES, CITIZEN_FEEDBACK_OPTIONS } from '../../utils/constants';
 import StatusBadge from '../../components/complaints/StatusBadge';
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -28,7 +28,8 @@ const PRIORITY_COLORS = {
   urgent: 'bg-red-100 text-red-700',
 };
 
-const STATUS_FLOW = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'closed'];
+const STATUS_FLOW = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'citizen_verification_pending', 'closed'];
+const REOPENED_FLOW = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'citizen_verification_pending', 'reopened'];
 
 function ComplaintDetail() {
   const { id } = useParams();
@@ -44,6 +45,10 @@ function ComplaintDetail() {
   const [newStatus, setNewStatus] = useState('');
   const [reason, setReason] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [showReopenForm, setShowReopenForm] = useState(false);
+  const [citizenFeedback, setCitizenFeedback] = useState('');
+  const [customFeedback, setCustomFeedback] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -94,6 +99,7 @@ function ComplaintDetail() {
     try {
       const payload = { status: newStatus };
       if (newStatus === 'rejected') payload.rejectionReason = reason;
+      if (newStatus === 'resolved') payload.resolutionRemarks = reason;
       const res = await updateStatus(id, payload);
       setComplaint(res.data);
       setNewStatus('');
@@ -106,16 +112,36 @@ function ComplaintDetail() {
     }
   };
 
-  const handleCloseByOwner = async () => {
-    setUpdatingStatus(true);
+  const handleVerifyResolved = async () => {
+    setVerificationLoading(true);
     try {
-      const res = await updateStatus(id, { status: 'closed' });
-      setComplaint(res.data);
-      toast.success('Complaint closed');
+      const res = await verifyComplaint(id);
+      setComplaint(res.data.complaint);
+      toast.success('Complaint closed successfully. Thank you for your verification.');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to close');
+      toast.error(err.response?.data?.message || 'Failed to verify');
     } finally {
-      setUpdatingStatus(false);
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleReopenComplaint = async () => {
+    if (!citizenFeedback && !customFeedback.trim()) {
+      return toast.error('Please select or provide a reason');
+    }
+    setVerificationLoading(true);
+    try {
+      const feedback = citizenFeedback === 'Other' ? customFeedback.trim() : citizenFeedback;
+      const res = await reopenComplaint(id, feedback);
+      setComplaint(res.data.complaint);
+      setShowReopenForm(false);
+      setCitizenFeedback('');
+      setCustomFeedback('');
+      toast.success('Complaint reopened. The authorities will be notified.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reopen');
+    } finally {
+      setVerificationLoading(false);
     }
   };
 
@@ -134,7 +160,9 @@ function ComplaintDetail() {
 
   const isOwner = user && complaint.createdBy?._id === user._id;
   const canManage = user && ['ward_member', 'gram_pradhan', 'admin'].includes(user.role);
-  const statusIndex = STATUS_FLOW.indexOf(complaint.status);
+  const isVerificationPending = ['citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status);
+  const flow = complaint.status === 'reopened' ? REOPENED_FLOW : STATUS_FLOW;
+  const statusIndex = flow.indexOf(complaint.status);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
@@ -246,21 +274,153 @@ function ComplaintDetail() {
         )}
       </div>
 
+      {complaint.resolvedBy && (
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <CheckCircle size={18} className="text-green-600" /> Resolution Details
+          </h2>
+          <div className="space-y-2 text-sm">
+            <p><span className="font-medium text-gray-700">Resolved by:</span> {complaint.resolvedBy.name} ({complaint.resolvedBy.role?.replace('_', ' ')})</p>
+            {complaint.resolvedAt && (
+              <p><span className="font-medium text-gray-700">Resolved on:</span> {format(new Date(complaint.resolvedAt), 'dd MMM yyyy, h:mm a')}</p>
+            )}
+            {complaint.resolutionRemarks && (
+              <p><span className="font-medium text-gray-700">Remarks:</span> {complaint.resolutionRemarks}</p>
+            )}
+            {complaint.resolutionImages?.length > 0 && (
+              <div>
+                <p className="font-medium text-gray-700 mb-1">Resolution photos:</p>
+                <div className="flex flex-wrap gap-2">
+                  {complaint.resolutionImages.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt=""
+                      className="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition"
+                      onClick={() => setLightbox(url)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isOwner && isVerificationPending && (
+        <div className="bg-white rounded-xl shadow-sm border-2 border-purple-300 p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <Clock size={24} className="text-purple-600 flex-shrink-0 mt-1" />
+            <div>
+              <h2 className="text-lg font-semibold text-purple-800">Please verify whether this issue has been resolved.</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Your feedback helps ensure accountability and transparency in the grievance redressal process.
+              </p>
+            </div>
+          </div>
+
+          {!showReopenForm ? (
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <button
+                onClick={handleVerifyResolved}
+                disabled={verificationLoading}
+                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-3 rounded-lg font-medium transition flex-1"
+              >
+                {verificationLoading ? 'Processing...' : <><CheckCircle size={20} /> Confirm Resolution</>}
+              </button>
+              <button
+                onClick={() => setShowReopenForm(true)}
+                disabled={verificationLoading}
+                className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-2 border-red-200 px-6 py-3 rounded-lg font-medium transition flex-1"
+              >
+                <AlertTriangle size={20} /> Issue Still Exists
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm font-medium text-gray-700">What issue still exists?</p>
+              <div className="flex flex-wrap gap-2">
+                {CITIZEN_FEEDBACK_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setCitizenFeedback(opt.value)}
+                    className={`px-4 py-2 rounded-lg text-sm border transition ${
+                      citizenFeedback === opt.value
+                        ? 'bg-red-100 border-red-300 text-red-700'
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {citizenFeedback === 'Other' && (
+                <textarea
+                  value={customFeedback}
+                  onChange={(e) => setCustomFeedback(e.target.value)}
+                  rows={2}
+                  className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Describe the issue..."
+                />
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleReopenComplaint}
+                  disabled={verificationLoading || (!citizenFeedback && !customFeedback.trim())}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-6 py-2 rounded-lg font-medium transition"
+                >
+                  {verificationLoading ? 'Submitting...' : 'Submit Feedback & Reopen'}
+                </button>
+                <button
+                  onClick={() => { setShowReopenForm(false); setCitizenFeedback(''); setCustomFeedback(''); }}
+                  className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isOwner && complaint.status === 'closed' && complaint.verifiedByCitizen && (
+        <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
+          <p className="text-sm text-gray-600 flex items-center gap-2">
+            <CheckCircle size={16} className="text-green-600" />
+            You verified and closed this complaint on {format(new Date(complaint.verifiedAt), 'dd MMM yyyy')}.
+          </p>
+        </div>
+      )}
+
+      {complaint.citizenFeedback && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <strong>Citizen feedback:</strong> {complaint.citizenFeedback}
+        </div>
+      )}
+
+      {complaint.closedAutomatically && (
+        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+          <strong>Auto-closed:</strong> This complaint was automatically closed due to no response from the citizen within the verification period.
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border p-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">Timeline</h2>
         <div className="space-y-0">
-          {STATUS_FLOW.map((s, i) => {
+          {flow.map((s, i) => {
             const reached = i <= statusIndex;
             return (
               <div key={s} className="flex items-start gap-3 pb-1 last:pb-0">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full mt-1.5 ${reached ? 'bg-green-600' : 'bg-gray-300'}`} />
-                  {i < STATUS_FLOW.length - 1 && <div className={`w-0.5 h-6 ${i < statusIndex ? 'bg-green-600' : 'bg-gray-200'}`} />}
+                  {i < flow.length - 1 && <div className={`w-0.5 h-6 ${i < statusIndex ? 'bg-green-600' : 'bg-gray-200'}`} />}
                 </div>
                 <div className={`text-sm ${reached ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
                   {s === 'resolved' && complaint.resolvedAt
                     ? `Resolved — ${format(new Date(complaint.resolvedAt), 'dd MMM yyyy')}`
-                    : s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    : s === 'citizen_verification_pending'
+                      ? 'Citizen Verification Pending'
+                      : s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                 </div>
               </div>
             );
@@ -268,20 +428,7 @@ function ComplaintDetail() {
         </div>
       </div>
 
-      {isOwner && complaint.status === 'resolved' && (
-        <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
-          <p className="text-sm text-gray-600">Your complaint has been resolved. You can close it to mark it complete.</p>
-          <button
-            onClick={handleCloseByOwner}
-            disabled={updatingStatus}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition"
-          >
-            {updatingStatus ? 'Closing...' : 'Mark as Closed'}
-          </button>
-        </div>
-      )}
-
-      {canManage && (
+      {canManage && !['closed', 'citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status) && (
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <h2 className="text-lg font-semibold text-gray-700 mb-3">Update Status</h2>
           <div className="flex flex-wrap gap-3">
@@ -291,7 +438,7 @@ function ComplaintDetail() {
               className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">Select status</option>
-              {COMPLAINT_STATUSES.map((s) => (
+              {COMPLAINT_STATUSES.filter((s) => !['citizen_verification_pending', 'awaiting_citizen_response', 'closed'].includes(s.value) || s.value === 'resolved').map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
@@ -299,6 +446,15 @@ function ComplaintDetail() {
               <input
                 type="text"
                 placeholder="Rejection reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            )}
+            {newStatus === 'resolved' && (
+              <input
+                type="text"
+                placeholder="Resolution remarks"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-green-500"

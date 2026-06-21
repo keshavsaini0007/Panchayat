@@ -59,7 +59,7 @@ const getAnalytics = async (req, res, next) => {
       Complaint.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }]),
       Complaint.aggregate([{ $group: { _id: '$village', count: { $sum: 1 } } }]),
       Complaint.aggregate([
-        { $match: { status: 'resolved', resolvedAt: { $ne: null } } },
+        { $match: { status: { $in: ['resolved', 'closed'] }, resolvedAt: { $ne: null } } },
         {
           $project: {
             hours: {

@@ -13,6 +13,9 @@ const STATUS_COLORS = {
   in_progress: '#F97316',
   resolved: '#22C55E',
   rejected: '#EF4444',
+  citizen_verification_pending: '#8B5CF6',
+  awaiting_citizen_response: '#F97316',
+  reopened: '#EF4444',
   closed: '#6B7280',
 };
 

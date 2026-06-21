@@ -1,7 +1,10 @@
 const Complaint = require('../models/Complaint');
 const Comment = require('../models/Comment');
+const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
+const Notification = require('../models/Notification');
 const { cloudinary, MAX_IMAGES, MAX_FILE_SIZE } = require('../config/cloudinary');
-const { validationResult } = require('express-validator');
+const { sendVerificationEmail } = require('../utils/emailService');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -77,7 +80,8 @@ const getComplaints = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role');
 
     res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
   } catch (err) {
@@ -89,6 +93,7 @@ const getComplaintById = async (req, res, next) => {
   try {
     const complaint = await Complaint.findById(req.params.id)
       .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
     if (!complaint) {
@@ -150,7 +155,9 @@ const addComment = async (req, res, next) => {
 
 const getMyComplaints = async (req, res, next) => {
   try {
-    const complaints = await Complaint.find({ createdBy: req.user._id }).sort({ createdAt: -1 });
+    const complaints = await Complaint.find({ createdBy: req.user._id })
+      .populate('resolvedBy', 'name role')
+      .sort({ createdAt: -1 });
     res.status(200).json({ complaints });
   } catch (err) {
     next(err);
@@ -159,8 +166,8 @@ const getMyComplaints = async (req, res, next) => {
 
 const updateComplaintStatus = async (req, res, next) => {
   try {
-    const { status, rejectionReason, assignedTo } = req.body;
-    const validStatuses = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'closed'];
+    const { status, rejectionReason, assignedTo, resolutionRemarks, resolutionImages } = req.body;
+    const validStatuses = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'citizen_verification_pending', 'reopened', 'awaiting_citizen_response', 'closed'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -174,14 +181,212 @@ const updateComplaintStatus = async (req, res, next) => {
       return res.status(400).json({ message: 'Rejection reason is required' });
     }
 
+    if (status === 'closed' || status === 'citizen_verification_pending') {
+      return res.status(400).json({ message: 'Status cannot be set directly. Use citizen verification flow.' });
+    }
+
+    if (status === 'resolved') {
+      const previousStatus = complaint.status;
+      complaint.resolvedBy = req.user._id;
+      complaint.resolvedAt = Date.now();
+      complaint.resolutionRemarks = resolutionRemarks || '';
+      if (resolutionImages) complaint.resolutionImages = resolutionImages;
+      complaint.status = 'citizen_verification_pending';
+
+      await complaint.save();
+
+      const populated = await Complaint.findById(complaint._id)
+        .populate('createdBy', 'name email')
+        .populate('resolvedBy', 'name role')
+        .populate('assignedTo', 'name role');
+
+      await AuditLog.create({
+        complaintId: complaint._id,
+        userId: req.user._id,
+        role: req.user.role,
+        action: 'complaint_resolved',
+        metadata: { resolutionRemarks, previousStatus },
+      });
+
+      const citizen = populated.createdBy;
+      if (citizen) {
+        await Notification.create({
+          userId: citizen._id,
+          complaintId: complaint._id,
+          type: 'citizen_verification',
+          message: 'Your complaint has been marked as resolved by the Panchayat. Please verify whether the issue has actually been resolved.',
+        });
+
+        if (citizen.email) {
+          sendVerificationEmail(
+            citizen.email,
+            citizen.name,
+            complaint.title,
+            complaint._id,
+            complaint.village,
+          );
+        }
+      }
+
+      return res.status(200).json(populated);
+    }
+
     complaint.status = status;
     if (rejectionReason) complaint.rejectionReason = rejectionReason;
     if (assignedTo) complaint.assignedTo = assignedTo;
-    if (status === 'resolved') complaint.resolvedAt = Date.now();
 
     await complaint.save();
 
-    res.status(200).json(complaint);
+    const populated = await Complaint.findById(complaint._id)
+      .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role')
+      .populate('assignedTo', 'name role');
+
+    res.status(200).json(populated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const verifyComplaint = async (req, res, next) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    if (!['citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status)) {
+      return res.status(400).json({ message: 'Complaint is not pending citizen verification' });
+    }
+
+    if (!complaint.createdBy.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the complaint creator can verify resolution' });
+    }
+
+    complaint.status = 'closed';
+    complaint.verifiedByCitizen = true;
+    complaint.verifiedAt = Date.now();
+    complaint.closedAutomatically = false;
+
+    await complaint.save();
+
+    await AuditLog.create({
+      complaintId: complaint._id,
+      userId: req.user._id,
+      role: req.user.role,
+      action: 'citizen_verified',
+      metadata: { complaintId: complaint._id, verifiedAt: complaint.verifiedAt },
+    });
+
+    const populated = await Complaint.findById(complaint._id)
+      .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role')
+      .populate('assignedTo', 'name role');
+
+    res.status(200).json({ message: 'Complaint closed successfully', complaint: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const reopenComplaint = async (req, res, next) => {
+  try {
+    const { citizenFeedback } = req.body;
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    if (!['citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status)) {
+      return res.status(400).json({ message: 'Complaint is not pending citizen verification' });
+    }
+
+    if (!complaint.createdBy.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the complaint creator can reject resolution' });
+    }
+
+    complaint.status = 'reopened';
+    complaint.citizenFeedback = citizenFeedback || '';
+    complaint.verifiedByCitizen = false;
+
+    await complaint.save();
+
+    await AuditLog.create({
+      complaintId: complaint._id,
+      userId: req.user._id,
+      role: req.user.role,
+      action: 'citizen_rejected',
+      metadata: { citizenFeedback },
+    });
+
+    await AuditLog.create({
+      complaintId: complaint._id,
+      userId: req.user._id,
+      role: req.user.role,
+      action: 'complaint_reopened',
+      metadata: { citizenFeedback },
+    });
+
+    const wardMembers = await User.find({
+      ward: complaint.ward,
+      role: { $in: ['ward_member', 'gram_pradhan'] },
+    });
+
+    for (const official of wardMembers) {
+      await Notification.create({
+        userId: official._id,
+        complaintId: complaint._id,
+        type: 'complaint_reopened',
+        message: `Complaint "${complaint.title}" has been reopened by the citizen for further action. Reason: ${citizenFeedback || 'Issue still exists'}`,
+      });
+    }
+
+    const populated = await Complaint.findById(complaint._id)
+      .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role')
+      .populate('assignedTo', 'name role');
+
+    res.status(200).json({ message: 'Complaint reopened for further action', complaint: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getVerificationHistory = async (req, res, next) => {
+  try {
+    const auditLogs = await AuditLog.find({ complaintId: req.params.id })
+      .populate('userId', 'name role')
+      .sort({ timestamp: -1 });
+    res.status(200).json({ auditLogs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getVerificationPendingComplaints = async (req, res, next) => {
+  try {
+    const complaints = await Complaint.find({
+      createdBy: req.user._id,
+      status: { $in: ['citizen_verification_pending', 'awaiting_citizen_response'] },
+    })
+      .populate('resolvedBy', 'name role')
+      .sort({ updatedAt: -1 });
+    res.status(200).json({ complaints });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getAllAuditLogs = async (req, res, next) => {
+  try {
+    const { complaintId } = req.query;
+    const filter = {};
+    if (complaintId) filter.complaintId = complaintId;
+    const auditLogs = await AuditLog.find(filter)
+      .populate('userId', 'name role')
+      .populate('complaintId', 'title')
+      .sort({ timestamp: -1 });
+    res.status(200).json({ auditLogs });
   } catch (err) {
     next(err);
   }
@@ -202,7 +407,8 @@ const getWardComplaints = async (req, res, next) => {
       .sort({ priority: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role');
 
     res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
   } catch (err) {
@@ -229,6 +435,7 @@ const getAllComplaintsAdmin = async (req, res, next) => {
       .skip(skip)
       .limit(limit)
       .populate('createdBy', 'name email')
+      .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
     res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
@@ -267,4 +474,4 @@ const deleteComplaint = async (req, res, next) => {
   }
 };
 
-module.exports = { createComplaint, getComplaints, getComplaintById, upvoteComplaint, addComment, getMyComplaints, updateComplaintStatus, getWardComplaints, getAllComplaintsAdmin, deleteComplaint };
+module.exports = { createComplaint, getComplaints, getComplaintById, upvoteComplaint, addComment, getMyComplaints, updateComplaintStatus, getWardComplaints, getAllComplaintsAdmin, deleteComplaint, verifyComplaint, reopenComplaint, getVerificationHistory, getVerificationPendingComplaints, getAllAuditLogs };

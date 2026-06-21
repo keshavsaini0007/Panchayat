@@ -27,3 +27,17 @@ export const getAllComplaintsAdmin = (params) =>
   api.get('/complaints/admin/all', { params });
 
 export const deleteComplaint = (id) => api.delete(`/complaints/${id}`);
+
+export const verifyComplaint = (id) => api.post(`/complaints/${id}/verify`);
+export const reopenComplaint = (id, citizenFeedback) =>
+  api.post(`/complaints/${id}/reopen`, { citizenFeedback });
+export const getVerificationHistory = (id) =>
+  api.get(`/complaints/${id}/audit`);
+export const getVerificationPending = () =>
+  api.get('/complaints/verification/pending');
+
+export const getNotifications = () => api.get('/notifications');
+export const markNotificationRead = (id) =>
+  api.patch(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () =>
+  api.patch('/notifications/read-all');

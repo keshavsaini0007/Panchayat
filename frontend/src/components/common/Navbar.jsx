@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Landmark, Menu, X, LogOut } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import NotificationBell from './NotificationBell';
 
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,7 +47,8 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold">
-            <Landmark size={28} />
+            {/* <Landmark size={28} /> */}
+            <img src="../../../public/favicon.png" alt="Panchayat" className="h-8 w-8" />
             Panchayat
           </Link>
 
@@ -65,6 +67,7 @@ function Navbar() {
             ))}
             {user ? (
               <div className="flex items-center gap-3">
+                <NotificationBell />
                 <span className="text-sm">{user.name}</span>
                 <span className="bg-green-500 text-xs px-2 py-0.5 rounded-full capitalize">
                   {user.role.replace('_', ' ')}

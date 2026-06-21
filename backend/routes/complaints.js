@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   getComplaints, getComplaintById, createComplaint, upvoteComplaint,
   addComment, getMyComplaints, deleteComplaint, updateComplaintStatus,
-  getWardComplaints, getAllComplaintsAdmin,
+  getWardComplaints, getAllComplaintsAdmin, verifyComplaint, reopenComplaint,
+  getVerificationHistory, getVerificationPendingComplaints, getAllAuditLogs,
 } = require('../controllers/complaintController');
 const { protect, authorizeRoles } = require('../middlewares/authMiddleware');
 const { upload, MAX_IMAGES } = require('../config/cloudinary');
@@ -35,6 +36,14 @@ router.post('/:id/upvote', protect, upvoteComplaint);
 router.post('/:id/comment', protect, addComment);
 
 router.patch('/:id/status', protect, authorizeRoles('ward_member', 'gram_pradhan', 'admin'), updateComplaintStatus);
+
+router.post('/:id/verify', protect, verifyComplaint);
+router.post('/:id/reopen', protect, reopenComplaint);
+router.get('/:id/audit', protect, getVerificationHistory);
+
+router.get('/verification/pending', protect, getVerificationPendingComplaints);
+
+router.get('/audit/all', protect, authorizeRoles('admin', 'gram_pradhan'), getAllAuditLogs);
 
 router.delete('/:id', protect, deleteComplaint);
 
