@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const OtpVerification = require('../models/OtpVerification');
-const { generateOtp, hashOtp, verifyOtpHash, checkRateLimit, MAX_ATTEMPTS, getOtpExpiry } = require('../utils/otpUtils');
+const { generateOtp, hashOtp, verifyOtpHash, checkRateLimit, checkOtpLockout, recordFailedOtpAttempt, clearOtpAttempts, MAX_ATTEMPTS, getOtpExpiry } = require('../utils/otpUtils');
 const { sendOtpEmail } = require('../utils/emailService');
 
 const sendOtp = async (req, res, next) => {
@@ -20,6 +20,13 @@ const sendOtp = async (req, res, next) => {
     if (!rateCheck.allowed) {
       return res.status(429).json({
         message: `Too many OTP requests. Try again in ${rateCheck.retryAfter} minutes.`,
+      });
+    }
+
+    const lockCheck = checkOtpLockout(email);
+    if (lockCheck.locked) {
+      return res.status(429).json({
+        message: `Account temporarily locked due to too many failed attempts. Try again in ${lockCheck.retryAfter} second(s).`,
       });
     }
 
@@ -58,6 +65,13 @@ const verifyOtp = async (req, res, next) => {
       return res.status(400).json({ message: 'OTP must be a 6-digit code.' });
     }
 
+    const lockCheck = checkOtpLockout(email);
+    if (lockCheck.locked) {
+      return res.status(429).json({
+        message: `Too many failed attempts. Try again in ${lockCheck.retryAfter} second(s).`,
+      });
+    }
+
     const record = await OtpVerification.findOne({ email, verified: false });
 
     if (!record) {
@@ -79,11 +93,18 @@ const verifyOtp = async (req, res, next) => {
     if (!isValid) {
       record.attempts += 1;
       await record.save();
+      const attemptResult = recordFailedOtpAttempt(email);
+      if (attemptResult.locked) {
+        return res.status(429).json({
+          message: `Too many failed attempts. Try again in ${Math.ceil(attemptResult.duration / 1000)} second(s).`,
+        });
+      }
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
     }
 
     record.verified = true;
     await record.save();
+    clearOtpAttempts(email);
 
     res.status(200).json({ message: 'Email verified successfully.' });
   } catch (err) {

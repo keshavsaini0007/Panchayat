@@ -1,21 +1,33 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2, MapPin, Upload, X, Check, ChevronLeft, ChevronRight, Crosshair, AlertCircle } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import toast from 'react-hot-toast';
-import { createComplaint } from '../../services/complaintService';
-import { COMPLAINT_CATEGORIES } from '../../utils/constants';
-import { reverseGeocode } from '../../services/geocodingService';
-import { compressImage } from '../../utils/imageCompression';
-import { validateImageFile, validateImageCount, MAX_IMAGES } from '../../utils/imageValidation';
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Loader2, MapPin, Upload, X, Check, ChevronLeft, ChevronRight, Crosshair, AlertCircle,
+} from "lucide-react";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import { toast } from "@/hooks/use-toast";
+import { createComplaint } from "@/services/complaintService";
+import { COMPLAINT_CATEGORIES } from "@/utils/constants";
+import { reverseGeocode } from "@/services/geocodingService";
+import { compressImage } from "@/utils/imageCompression";
+import { validateImageFile, validateImageCount, MAX_IMAGES } from "@/utils/imageValidation";
+import { PageTransition } from "@/components/page-transition";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,22 +37,18 @@ L.Icon.Default.mergeOptions({
 });
 
 const step1Schema = z.object({
-  title: z.string().min(10, 'Title must be at least 10 characters'),
-  category: z.string().min(1, 'Category is required'),
-  description: z.string().min(30, 'Description must be at least 30 characters'),
-  village: z.string().min(1, 'Village is required'),
-  ward: z.string().min(1, 'Ward is required'),
-});
-
-const step2Schema = z.object({
-  address: z.string().optional(),
+  title: z.string().min(10, "Title must be at least 10 characters"),
+  category: z.string().min(1, "Category is required"),
+  description: z.string().min(30, "Description must be at least 30 characters"),
+  village: z.string().min(1, "Village is required"),
+  ward: z.string().min(1, "Ward is required"),
 });
 
 const formatFileSize = (bytes) => {
-  if (!bytes) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (!bytes) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 };
 
 let imageIdCounter = 0;
@@ -67,8 +75,8 @@ function SubmitComplaint() {
   const [position, setPosition] = useState({ lat: 20.5937, lng: 78.9629 });
   const [mapZoom, setMapZoom] = useState(5);
   const [marker, setMarker] = useState(null);
-  const [resolvedAddress, setResolvedAddress] = useState('');
-  const [plusCode, setPlusCode] = useState('');
+  const [resolvedAddress, setResolvedAddress] = useState("");
+  const [plusCode, setPlusCode] = useState("");
   const [images, setImages] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -76,7 +84,7 @@ function SubmitComplaint() {
   const [step1Data, setStep1Data] = useState(null);
 
   const step1Form = useForm({ resolver: zodResolver(step1Schema) });
-  const step2Form = useForm({ resolver: zodResolver(step2Schema) });
+  const [step2Location, setStep2Location] = useState("");
 
   const canProceedFromStep1 = step === 1 && step1Form.formState.isValid;
 
@@ -95,10 +103,9 @@ function SubmitComplaint() {
 
   const processFiles = async (files) => {
     const fileArray = Array.from(files);
-
     const countValidation = validateImageCount(images.length, fileArray.length);
     if (!countValidation.valid) {
-      toast.error(countValidation.error);
+      toast({ title: countValidation.error, variant: "destructive" });
       return;
     }
 
@@ -115,7 +122,9 @@ function SubmitComplaint() {
     }
 
     if (errors.length > 0) {
-      errors.forEach(({ name, error }) => toast.error(`${name}: ${error}`));
+      errors.forEach(({ name, error }) =>
+        toast({ title: `${name}: ${error}`, variant: "destructive" })
+      );
     }
 
     if (validFiles.length === 0) return;
@@ -128,37 +137,29 @@ function SubmitComplaint() {
       size: file.size,
       compressedSize: null,
       compressedFile: null,
-      status: 'pending',
+      status: "pending",
     }));
 
     setImages((prev) => [...prev, ...newImages]);
 
     for (const img of newImages) {
       setImages((prev) =>
-        prev.map((i) => (i.id === img.id ? { ...i, status: 'compressing' } : i))
+        prev.map((i) => (i.id === img.id ? { ...i, status: "compressing" } : i))
       );
       try {
         const compressed = await compressImage(img.file);
         setImages((prev) =>
           prev.map((i) =>
             i.id === img.id
-              ? {
-                  ...i,
-                  status: 'compressed',
-                  compressedFile: compressed,
-                  compressedSize: compressed.size,
-                  file: compressed,
-                }
+              ? { ...i, status: "compressed", compressedFile: compressed, compressedSize: compressed.size, file: compressed }
               : i
           )
         );
       } catch (err) {
-        console.error('Compression error:', err);
+        console.error("Compression error:", err);
         setImages((prev) =>
           prev.map((i) =>
-            i.id === img.id
-              ? { ...i, status: 'error', error: 'Failed to compress image. Using original.' }
-              : i
+            i.id === img.id ? { ...i, status: "error", error: "Failed to compress image." } : i
           )
         );
       }
@@ -167,7 +168,7 @@ function SubmitComplaint() {
 
   const handleImageSelect = (e) => {
     processFiles(e.target.files);
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const removeImage = (id) => {
@@ -184,16 +185,6 @@ function SubmitComplaint() {
     processFiles(e.dataTransfer.files);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-  };
-
   const center = useMemo(() => [20.5937, 78.9629], []);
 
   const doReverseGeocode = async (lat, lng) => {
@@ -201,50 +192,42 @@ function SubmitComplaint() {
     const result = await reverseGeocode(lat, lng);
     if (result.address) {
       setResolvedAddress(result.address);
-      step2Form.setValue('address', result.address);
+      setStep2Location(result.address);
     }
-    if (result.plusCode) {
-      setPlusCode(result.plusCode);
-    }
-    if (result.error) {
-      toast.error(result.error);
-    }
+    if (result.plusCode) setPlusCode(result.plusCode);
+    if (result.error) toast({ title: result.error, variant: "destructive" });
     setResolvingAddress(false);
   };
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser.');
+      toast({ title: "Geolocation not supported", variant: "destructive" });
       return;
     }
-
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, lng } = { latitude: pos.coords.latitude, lng: pos.coords.longitude };
-        const loc = { lat: latitude, lng };
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setMarker(loc);
         setPosition(loc);
         setMapZoom(16);
         setLocating(false);
-        doReverseGeocode(latitude, lng);
+        doReverseGeocode(loc.lat, loc.lng);
       },
       (err) => {
         setLocating(false);
         const messages = {
-          1: 'Location access was denied. Please enable location permissions in your browser settings.',
-          2: 'Unable to determine your location. The device location is unavailable.',
-          3: 'Location request timed out. Please try again.',
+          1: "Location access denied.",
+          2: "Location unavailable.",
+          3: "Location request timed out.",
         };
-        toast.error(messages[err.code] || 'Failed to get current location.');
+        toast({ title: messages[err.code] || "Failed to get location.", variant: "destructive" });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
     );
   };
 
-  const handleMapClick = (pos) => {
-    doReverseGeocode(pos.lat, pos.lng);
-  };
+  const handleMapClick = (pos) => doReverseGeocode(pos.lat, pos.lng);
 
   const handleSubmit = async () => {
     if (!step1Data) return;
@@ -252,29 +235,31 @@ function SubmitComplaint() {
     setUploadProgress(0);
     try {
       const formData = new FormData();
-      formData.append('title', step1Data.title);
-      formData.append('category', step1Data.category);
-      formData.append('description', step1Data.description);
-      formData.append('village', step1Data.village);
-      formData.append('ward', step1Data.ward);
+      formData.append("title", step1Data.title);
+      formData.append("category", step1Data.category);
+      formData.append("description", step1Data.description);
+      formData.append("village", step1Data.village);
+      formData.append("ward", step1Data.ward);
       const locationPayload = {
-        address: resolvedAddress || step2Form.getValues().address || '',
-        lat: marker?.lat || '',
-        lng: marker?.lng || '',
+        address: resolvedAddress || step2Location || "",
+        lat: marker?.lat || "",
+        lng: marker?.lng || "",
       };
       if (plusCode) locationPayload.plusCode = plusCode;
-      formData.append('location', JSON.stringify(locationPayload));
-      images.forEach((img) => {
-        formData.append('images', img.compressedFile || img.file);
-      });
+      formData.append("location", JSON.stringify(locationPayload));
+      images.forEach((img) => formData.append("images", img.compressedFile || img.file));
       await createComplaint(formData, (progressEvent) => {
         const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         setUploadProgress(progress);
       });
-      toast.success('Complaint submitted!');
-      navigate('/my-complaints');
+      toast({ title: "Complaint submitted!" });
+      navigate("/my-complaints");
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit complaint');
+      toast({
+        title: "Failed to submit",
+        description: err.response?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
       setUploadProgress(0);
@@ -282,371 +267,307 @@ function SubmitComplaint() {
   };
 
   useEffect(() => {
-    return () => {
-      images.forEach((img) => URL.revokeObjectURL(img.preview));
-    };
+    return () => images.forEach((img) => URL.revokeObjectURL(img.preview));
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Submit a Complaint</h1>
+    <PageTransition className="max-w-3xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold tracking-tight mb-2">Submit a Complaint</h1>
 
       <div className="flex items-center gap-2 mb-8">
         {[1, 2, 3].map((s) => (
           <div key={s} className="flex items-center gap-2 flex-1">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition ${
-                s < step
-                  ? 'bg-green-600 text-white'
-                  : s === step
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-200 text-gray-500'
+                s <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               }`}
             >
-              {s < step ? <Check size={16} /> : s}
+              {s < step ? <Check className="h-4 w-4" /> : s}
             </div>
-            <div className={`h-1 flex-1 rounded ${s < 3 ? (s < step ? 'bg-green-600' : 'bg-gray-200') : ''}`} />
+            {s < 3 && (
+              <div className={`h-1 flex-1 rounded ${s < step ? "bg-primary" : "bg-border"}`} />
+            )}
           </div>
         ))}
       </div>
 
       {step === 1 && (
-        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-700">Basic Information</h2>
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Basic Information</h2>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-            <input
-              type="text"
-              {...step1Form.register('title')}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Brief title of the issue"
-            />
-            {step1Form.formState.errors.title && (
-              <p className="text-red-500 text-xs mt-1">{step1Form.formState.errors.title.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select
-              {...step1Form.register('category')}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">Select category</option>
-              {COMPLAINT_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-            {step1Form.formState.errors.category && (
-              <p className="text-red-500 text-xs mt-1">{step1Form.formState.errors.category.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              {...step1Form.register('description')}
-              rows={4}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              placeholder="Describe the issue in detail (min 30 characters)"
-            />
-            {step1Form.formState.errors.description && (
-              <p className="text-red-500 text-xs mt-1">{step1Form.formState.errors.description.message}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Village</label>
-              <input
-                type="text"
-                {...step1Form.register('village')}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Village name"
-              />
-              {step1Form.formState.errors.village && (
-                <p className="text-red-500 text-xs mt-1">{step1Form.formState.errors.village.message}</p>
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" {...step1Form.register("title")} placeholder="Brief title of the issue" />
+              {step1Form.formState.errors.title && (
+                <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.title.message}</p>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ward</label>
-              <input
-                type="text"
-                {...step1Form.register('ward')}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Ward number"
-              />
-              {step1Form.formState.errors.ward && (
-                <p className="text-red-500 text-xs mt-1">{step1Form.formState.errors.ward.message}</p>
+
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                onValueChange={(v) => step1Form.setValue("category", v)}
+                defaultValue={step1Form.getValues("category")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMPLAINT_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {step1Form.formState.errors.category && (
+                <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.category.message}</p>
               )}
             </div>
-          </div>
 
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={handleStep1Next}
-              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" {...step1Form.register("description")} rows={4} placeholder="Describe the issue in detail (min 30 characters)" />
+              {step1Form.formState.errors.description && (
+                <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.description.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="village">Village</Label>
+                <Input id="village" {...step1Form.register("village")} placeholder="Village name" />
+                {step1Form.formState.errors.village && (
+                  <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.village.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ward">Ward</Label>
+                <Input id="ward" {...step1Form.register("ward")} placeholder="Ward number" />
+                {step1Form.formState.errors.ward && (
+                  <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.ward.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button onClick={handleStep1Next}>
+                Next <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {step === 2 && (
-        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-          <h2 className="text-lg font-semibold text-gray-700">Location & Photos</h2>
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <h2 className="text-lg font-semibold">Location & Photos</h2>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pin Location on Map</label>
-            <button
-              type="button"
-              onClick={handleGetCurrentLocation}
-              disabled={locating}
-              className="flex items-center gap-2 mb-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-            >
-              {locating ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Crosshair size={16} />
-              )}
-              {locating ? 'Getting location...' : 'Use My Current Location'}
-            </button>
-            <div className="h-64 rounded-lg overflow-hidden border">
-              <MapContainer center={center} zoom={mapZoom} className="h-full w-full" key={`${position.lat}-${position.lng}-${mapZoom}`}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <LocationMarker position={marker} onPositionChange={(p) => setMarker(p)} onMapClick={handleMapClick} />
-              </MapContainer>
-            </div>
-            {marker && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg border text-sm space-y-1">
-                <p className="font-medium text-gray-700 flex items-center gap-1">
-                  <MapPin size={14} /> Selected Location
-                </p>
-                <p className="text-gray-500">
-                  Latitude: <span className="font-mono text-gray-700">{marker.lat.toFixed(6)}</span>
-                </p>
-                <p className="text-gray-500">
-                  Longitude: <span className="font-mono text-gray-700">{marker.lng.toFixed(6)}</span>
-                </p>
-                {resolvingAddress && (
-                  <p className="text-gray-400 flex items-center gap-1">
-                    <Loader2 size={12} className="animate-spin" /> Resolving address...
-                  </p>
+            <div>
+              <Label className="mb-2 block">Pin Location on Map</Label>
+              <Button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={locating}
+                variant="outline"
+                className="mb-3"
+              >
+                {locating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Crosshair className="mr-2 h-4 w-4" />
                 )}
-                {resolvedAddress && !resolvingAddress && (
-                  <p className="text-gray-500">
-                    Address: <span className="text-gray-700">{resolvedAddress}</span>
-                  </p>
-                )}
-                {plusCode && (
-                  <p className="text-gray-400 text-xs">
-                    Plus Code: {plusCode}
-                  </p>
-                )}
+                {locating ? "Getting location..." : "Use My Current Location"}
+              </Button>
+              <div className="h-64 rounded-xl overflow-hidden border border-border">
+                <MapContainer center={center} zoom={mapZoom} className="h-full w-full" key={`${position.lat}-${position.lng}-${mapZoom}`}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <LocationMarker position={marker} onPositionChange={(p) => setMarker(p)} onMapClick={handleMapClick} />
+                </MapContainer>
               </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Address (manual override)</label>
-            <input
-              type="text"
-              {...step2Form.register('address')}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="e.g. Near the main square"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Images ({images.length}/{MAX_IMAGES})
-            </label>
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
-                dragOver
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp"
-                multiple
-                className="hidden"
-                onChange={handleImageSelect}
-              />
-              {images.length === 0 ? (
-                <>
-                  <Upload size={40} className="mx-auto text-gray-400 mb-3" />
-                  <p className="text-gray-600 font-medium">Drag images here or click to upload</p>
-                  <p className="text-xs text-gray-400 mt-2">JPG, PNG, WEBP (max {MAX_IMAGES} images, 5 MB each)</p>
-                </>
-              ) : (
-                <>
-                  <Upload size={24} className="mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">Click or drag to add more images</p>
-                </>
-              )}
-            </div>
-
-            {images.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
-                {images.map((img) => (
-                  <div key={img.id} className="relative group rounded-lg border overflow-hidden bg-gray-50">
-                    <div className="aspect-square">
-                      <img
-                        src={img.preview}
-                        alt={img.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="p-2 bg-white">
-                      <p className="text-xs text-gray-700 truncate" title={img.name}>
-                        {img.name}
-                      </p>
-                      <p className="text-xs mt-0.5">
-                        {img.status === 'pending' ? (
-                          <span className="text-gray-400">Pending compression...</span>
-                        ) : img.status === 'compressing' ? (
-                          <span className="text-blue-500 flex items-center gap-1">
-                            <Loader2 size={10} className="animate-spin" /> Compressing...
-                          </span>
-                        ) : img.status === 'compressed' ? (
-                          <span className="text-green-600">
-                            {formatFileSize(img.compressedSize)}
-                            {img.compressedSize !== img.size && (
-                              <span className="text-gray-400 ml-1">
-                                (was {formatFileSize(img.size)})
-                              </span>
-                            )}
-                          </span>
-                        ) : img.status === 'error' ? (
-                          <span className="text-red-500 flex items-center gap-1" title={img.error}>
-                            <AlertCircle size={10} /> {formatFileSize(img.size)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">{formatFileSize(img.size)}</span>
-                        )}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeImage(img.id)}
-                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-red-700"
-                      title="Remove image"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {submitting && uploadProgress > 0 && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                  <span>Uploading images...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between pt-2">
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center gap-1 border px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-            >
-              <ChevronLeft size={16} /> Back
-            </button>
-            <button
-              onClick={() => setStep(3)}
-              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-          <h2 className="text-lg font-semibold text-gray-700">Review & Submit</h2>
-
-          <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500">Title:</span> <span className="font-medium">{step1Data?.title}</span></div>
-              <div><span className="text-gray-500">Category:</span> <span className="font-medium capitalize">{step1Data?.category?.replace('_', ' ')}</span></div>
-              <div><span className="text-gray-500">Village:</span> <span className="font-medium">{step1Data?.village}</span></div>
-              <div><span className="text-gray-500">Ward:</span> <span className="font-medium">{step1Data?.ward}</span></div>
-            </div>
-            <div className="text-sm">
-              <span className="text-gray-500">Description:</span>
-              <p className="font-medium mt-0.5">{step1Data?.description}</p>
-            </div>
-            <div className="text-sm">
-              <span className="text-gray-500">Location:</span>
-              <p className="font-medium mt-0.5">
-                {resolvedAddress || step2Form.getValues().address || 'No address provided'}
-              </p>
               {marker && (
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {marker.lat.toFixed(6)}, {marker.lng.toFixed(6)}
-                  {plusCode && ` — Plus Code: ${plusCode}`}
-                </p>
+                <div className="mt-3 p-3 border border-border rounded-lg text-sm space-y-1">
+                  <p className="font-medium flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> Selected Location
+                  </p>
+                  <p className="text-muted-foreground">
+                    Lat: <span className="font-mono">{marker.lat.toFixed(6)}</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Lng: <span className="font-mono">{marker.lng.toFixed(6)}</span>
+                  </p>
+                  {resolvingAddress && (
+                    <p className="text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Resolving address...
+                    </p>
+                  )}
+                  {resolvedAddress && !resolvingAddress && (
+                    <p className="text-muted-foreground">
+                      Address: <span className="text-foreground">{resolvedAddress}</span>
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-            <div className="text-sm">
-              <span className="text-gray-500">Images:</span>
-              <span className="font-medium ml-1">{images.length} file(s)</span>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Address (manual override)</Label>
+              <Input
+                id="address"
+                value={step2Location}
+                onChange={(e) => setStep2Location(e.target.value)}
+                placeholder="e.g. Near the main square"
+              />
+            </div>
+
+            <div>
+              <Label className="mb-2 block">
+                Upload Images ({images.length}/{MAX_IMAGES})
+              </Label>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                  dragOver ? "border-primary/50 bg-primary/10" : "border-border hover:border-primary/50 hover:bg-muted/30"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+                {images.length === 0 ? (
+                  <>
+                    <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="font-medium">Drag images here or click to upload</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      JPG, PNG, WEBP (max {MAX_IMAGES} images, 5 MB each)
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Click or drag to add more images</p>
+                  </>
+                )}
+              </div>
+
               {images.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
                   {images.map((img) => (
-                    <div key={img.id} className="relative w-14 h-14 rounded-lg overflow-hidden border">
-                      <img src={img.preview} alt="" className="w-full h-full object-cover" />
-                      {img.status === 'compressed' && (
-                        <div className="absolute top-0 left-0 bg-green-600 text-white p-0.5">
-                          <Check size={8} />
-                        </div>
-                      )}
+                    <div key={img.id} className="relative group rounded-lg border border-border overflow-hidden">
+                      <div className="aspect-square">
+                        <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="p-2 bg-muted/20">
+                        <p className="text-xs truncate">{img.name}</p>
+                        <p className="text-xs mt-0.5 text-muted-foreground">
+                          {img.status === "compressing" ? (
+                            <span className="text-primary flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Compressing...
+                            </span>
+                          ) : img.status === "compressed" ? (
+                            <span className="text-primary">
+                              {formatFileSize(img.compressedSize)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">{formatFileSize(img.size)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeImage(img.id)}
+                        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                        aria-label="Remove image"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
 
-          <div className="flex justify-between pt-2">
-            <button
-              onClick={() => setStep(2)}
-              className="flex items-center gap-1 border px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-            >
-              <ChevronLeft size={16} /> Back
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-2 rounded-lg text-sm font-medium transition"
-            >
-              {submitting && <Loader2 size={16} className="animate-spin" />}
-              {submitting ? 'Submitting...' : 'Submit Complaint'}
-            </button>
-          </div>
-        </div>
+              {submitting && uploadProgress > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ChevronLeft className="mr-1 h-4 w-4" /> Back
+              </Button>
+              <Button onClick={() => setStep(3)}>
+                Next <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
-    </div>
+
+      {step === 3 && (
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <h2 className="text-lg font-semibold">Review & Submit</h2>
+
+            <div className="space-y-3 bg-muted/30 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Title:</span> <span className="font-medium">{step1Data?.title}</span></div>
+                <div><span className="text-muted-foreground">Category:</span> <span className="font-medium capitalize">{step1Data?.category?.replace("_", " ")}</span></div>
+                <div><span className="text-muted-foreground">Village:</span> <span className="font-medium">{step1Data?.village}</span></div>
+                <div><span className="text-muted-foreground">Ward:</span> <span className="font-medium">{step1Data?.ward}</span></div>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Description:</span>
+                <p className="font-medium mt-0.5">{step1Data?.description}</p>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Location:</span>
+                <p className="font-medium mt-0.5">{resolvedAddress || step2Location || "No address"}</p>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Images:</span>
+                <span className="font-medium ml-1">{images.length} file(s)</span>
+                {images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {images.map((img) => (
+                      <div key={img.id} className="relative w-14 h-14 rounded-lg overflow-hidden border border-border">
+                        <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(2)}>
+                <ChevronLeft className="mr-1 h-4 w-4" /> Back
+              </Button>
+              <Button onClick={handleSubmit} disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Submitting..." : "Submit Complaint"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </PageTransition>
   );
 }
 

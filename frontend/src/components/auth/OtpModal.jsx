@@ -1,14 +1,24 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Check, AlertCircle, X, Clock, ArrowLeft } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Loader2, Check, AlertCircle, X, Clock, ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const RESEND_COOLDOWN = 60;
 
 function OtpModal({ email, onVerify, onResend, onChangeEmail, onClose }) {
-  const [otp, setOtp] = useState(Array(6).fill(''));
+  const [otp, setOtp] = useState(Array(6).fill(""));
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -17,62 +27,50 @@ function OtpModal({ email, onVerify, onResend, onChangeEmail, onClose }) {
 
   useEffect(() => {
     if (countdown <= 0) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => prev - 1);
-    }, 1000);
+    const timer = setInterval(() => setCountdown((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [countdown]);
 
   const handleChange = (index, value) => {
     if (value && !/^\d$/.test(value)) return;
-    setError('');
+    setError("");
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
   };
 
   const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0)
       inputRefs.current[index - 1]?.focus();
-    }
-    if (e.key === 'ArrowLeft' && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-    if (e.key === 'ArrowRight' && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    if (e.key === "ArrowLeft" && index > 0) inputRefs.current[index - 1]?.focus();
+    if (e.key === "ArrowRight" && index < 5) inputRefs.current[index + 1]?.focus();
   };
 
   const handlePaste = useCallback((e) => {
     e.preventDefault();
-    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const paste = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (!paste) return;
-    const newOtp = Array(6).fill('');
-    for (let i = 0; i < paste.length; i++) {
-      newOtp[i] = paste[i];
-    }
+    const newOtp = Array(6).fill("");
+    for (let i = 0; i < paste.length; i++) newOtp[i] = paste[i];
     setOtp(newOtp);
-    setError('');
-    const focusIndex = Math.min(paste.length, 5);
-    inputRefs.current[focusIndex]?.focus();
+    setError("");
+    inputRefs.current[Math.min(paste.length, 5)]?.focus();
   }, []);
 
   const handleVerify = async () => {
-    const code = otp.join('');
+    const code = otp.join("");
     if (code.length !== 6) {
-      setError('Please enter all 6 digits.');
+      setError("Please enter all 6 digits.");
       return;
     }
     setLoading(true);
-    setError('');
+    setError("");
     try {
       await onVerify(code);
     } catch (err) {
-      setError(err.response?.data?.message || 'Verification failed. Please try again.');
-      setOtp(Array(6).fill(''));
+      setError(err.response?.data?.message || "Verification failed. Please try again.");
+      setOtp(Array(6).fill(""));
       inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
@@ -82,43 +80,36 @@ function OtpModal({ email, onVerify, onResend, onChangeEmail, onClose }) {
   const handleResend = async () => {
     if (countdown > 0 || resending) return;
     setResending(true);
-    setError('');
+    setError("");
     try {
       await onResend();
       setCountdown(RESEND_COOLDOWN);
-      setOtp(Array(6).fill(''));
+      setOtp(Array(6).fill(""));
       inputRefs.current[0]?.focus();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to resend OTP.');
+      setError(err.response?.data?.message || "Failed to resend OTP.");
     } finally {
       setResending(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 relative animate-in">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
-        >
-          <X size={20} />
-        </button>
-
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check size={28} className="text-green-600" />
+    <Dialog open={true} onOpenChange={() => onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="text-center sm:text-center">
+          <div className="w-14 h-14 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Check size={28} className="text-primary" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">Email Verification</h2>
-          <p className="text-gray-500 text-sm mt-2">
-            Enter the 6-digit code sent to
-          </p>
-          <p className="text-gray-700 font-medium mt-1">{email}</p>
-        </div>
+          <DialogTitle className="text-xl">Email Verification</DialogTitle>
+          <DialogDescription>
+            Enter the 6-digit code sent to{" "}
+            <span className="font-medium text-foreground">{email}</span>
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="flex justify-center gap-2 mb-6" onPaste={handlePaste}>
+        <div className="flex justify-center gap-2 py-4" onPaste={handlePaste}>
           {otp.map((digit, i) => (
-            <input
+            <Input
               key={i}
               ref={(el) => (inputRefs.current[i] = el)}
               type="text"
@@ -127,70 +118,79 @@ function OtpModal({ email, onVerify, onResend, onChangeEmail, onClose }) {
               value={digit}
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
-              className={`w-12 h-14 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 transition ${
-                error
-                  ? 'border-red-300 focus:ring-red-400 focus:border-red-400'
-                  : digit
-                  ? 'border-green-500 focus:ring-green-400'
-                  : 'border-gray-300 focus:ring-green-400 focus:border-green-500'
+              className={`w-12 h-14 text-center text-xl font-bold ${
+                error ? "border-destructive" : digit ? "border-primary" : ""
               }`}
+              aria-label={`Digit ${i + 1}`}
             />
           ))}
         </div>
 
-        {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm mb-4 justify-center">
-            <AlertCircle size={14} />
-            <span>{error}</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-2 text-destructive text-sm justify-center"
+            >
+              <AlertCircle size={14} />
+              <span>{error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <button
+        <Button
           onClick={handleVerify}
           disabled={loading}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-2"
+          className="w-full"
+          size="lg"
         >
           {loading ? (
             <>
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Verifying...
             </>
           ) : (
-            'Verify OTP'
+            "Verify OTP"
           )}
-        </button>
+        </Button>
 
-        <div className="flex items-center justify-between mt-5 text-sm">
-          <button
+        <div className="flex items-center justify-between mt-2">
+          <Button
+            variant="link"
+            size="sm"
             onClick={handleResend}
             disabled={countdown > 0 || resending}
-            className="text-green-600 hover:text-green-700 disabled:text-gray-400 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition"
+            className="text-primary"
           >
             {resending ? (
               <>
-                <Loader2 size={14} className="animate-spin" />
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 Sending...
               </>
             ) : countdown > 0 ? (
               <>
-                <Clock size={14} />
+                <Clock className="mr-1 h-3 w-3" />
                 Resend in {countdown}s
               </>
             ) : (
-              'Resend OTP'
+              "Resend OTP"
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="link"
+            size="sm"
             onClick={onChangeEmail}
-            className="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1 transition"
+            className="text-muted-foreground"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft className="mr-1 h-3 w-3" />
             Change email
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

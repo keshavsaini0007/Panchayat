@@ -1,32 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Eye, Trash2, ThumbsUp, Calendar, Inbox } from 'lucide-react';
-import { format } from 'date-fns';
-import toast from 'react-hot-toast';
-import { getMyComplaints, deleteComplaint } from '../../services/complaintService';
-import StatusBadge from '../../components/complaints/StatusBadge';
-
-const TABS = ['All', 'Pending', 'In Progress', 'Citizen Verification Pending', 'Resolved', 'Reopened', 'Closed'];
+import { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, Trash2, ThumbsUp, Calendar, Inbox } from "lucide-react";
+import { format } from "date-fns";
+import { motion } from "framer-motion";
+import { toast } from "@/hooks/use-toast";
+import { getMyComplaints, deleteComplaint } from "@/services/complaintService";
+import StatusBadge from "@/components/complaints/StatusBadge";
+import { PageTransition, containerVariants, itemVariants } from "@/components/page-transition";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const CATEGORY_LABELS = {
-  roads: 'Roads', bridges: 'Bridges', buildings: 'Buildings',
-  water_supply: 'Water Supply', electricity: 'Electricity', street_lights: 'Street Lights',
-  garbage: 'Garbage', sewage: 'Sewage', drainage: 'Drainage',
-  dangerous_structures: 'Dangerous Structures', open_manholes: 'Open Manholes',
-  scheme_delays: 'Scheme Delays', other: 'Other',
+  roads: "Roads", bridges: "Bridges", buildings: "Buildings",
+  water_supply: "Water Supply", electricity: "Electricity", street_lights: "Street Lights",
+  garbage: "Garbage", sewage: "Sewage", drainage: "Drainage",
+  dangerous_structures: "Dangerous Structures", open_manholes: "Open Manholes",
+  scheme_delays: "Scheme Delays", other: "Other",
 };
 
 function MyComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('All');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("all");
 
   const fetchComplaints = useCallback(async () => {
     try {
       const res = await getMyComplaints();
       setComplaints(res.data.complaints);
     } catch {
-      toast.error('Failed to load complaints');
+      toast({
+        title: "Error",
+        description: "Failed to load complaints",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -37,37 +55,39 @@ function MyComplaints() {
   }, [fetchComplaints]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this complaint?')) return;
+    if (!window.confirm("Are you sure you want to delete this complaint?")) return;
     try {
       await deleteComplaint(id);
       setComplaints((prev) => prev.filter((c) => c._id !== id));
-      toast.success('Complaint deleted');
+      toast({ title: "Complaint deleted" });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete');
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Failed to delete",
+        variant: "destructive",
+      });
     }
   };
 
   const statusCounts = {
-    pending: complaints.filter((c) => c.status === 'pending').length,
-    in_progress: complaints.filter((c) => c.status === 'in_progress').length,
-    citizen_verification_pending: complaints.filter((c) => c.status === 'citizen_verification_pending' || c.status === 'awaiting_citizen_response').length,
-    resolved: complaints.filter((c) => c.status === 'resolved').length,
-    reopened: complaints.filter((c) => c.status === 'reopened').length,
-    closed: complaints.filter((c) => c.status === 'closed').length,
+    pending: complaints.filter((c) => c.status === "pending").length,
+    in_progress: complaints.filter((c) => c.status === "in_progress").length,
+    resolved: complaints.filter((c) => c.status === "resolved").length,
+    closed: complaints.filter((c) => c.status === "closed").length,
   };
 
-  const filtered = activeTab === 'All'
-    ? complaints
-    : complaints.filter((c) => c.status === activeTab.toLowerCase().replace(/\s+/g, '_'));
+  const filtered =
+    activeTab === "all"
+      ? complaints
+      : complaints.filter((c) => c.status === activeTab);
 
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3" />
-          <div className="h-6 bg-gray-200 rounded w-full" />
+        <Skeleton className="h-8 w-1/3 mb-4" />
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-gray-200 rounded" />
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
       </div>
@@ -75,113 +95,176 @@ function MyComplaints() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">My Complaints</h1>
+    <PageTransition className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 className="text-3xl font-bold tracking-tight mb-6">My Complaints</h1>
 
-      <div className="flex flex-wrap gap-3 mb-6">
-        {Object.entries({ All: complaints.length, ...statusCounts }).map(([key, count]) => {
-          const tabKey = key.includes('_') ? key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : key.charAt(0).toUpperCase() + key.slice(1);
-          const label = key === 'All' ? 'All' : tabKey;
-          return (
-            <div key={key} className="bg-white border rounded-lg px-4 py-2 text-center min-w-[100px]">
-              <p className="text-2xl font-bold text-gray-800">{count}</p>
-              <p className="text-xs text-gray-500 capitalize">{label.replace('_', ' ')}</p>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">{complaints.length}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">{statusCounts.pending}</p>
+            <p className="text-xs text-muted-foreground">Pending</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">{statusCounts.in_progress}</p>
+            <p className="text-xs text-muted-foreground">In Progress</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">{statusCounts.resolved}</p>
+            <p className="text-xs text-muted-foreground">Resolved</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="flex gap-2 mb-6 border-b pb-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-t transition ${
-              activeTab === tab
-                ? 'bg-green-600 text-white'
-                : 'text-gray-500 hover:text-green-600'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="all">All ({complaints.length})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
+          <TabsTrigger value="in_progress">In Progress ({statusCounts.in_progress})</TabsTrigger>
+          <TabsTrigger value="resolved">Resolved ({statusCounts.resolved})</TabsTrigger>
+          <TabsTrigger value="closed">Closed ({statusCounts.closed})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <Inbox size={64} />
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Inbox className="h-16 w-16" />
           <p className="mt-4 text-lg font-medium">No complaints found</p>
-          <Link to="/submit" className="mt-2 text-sm text-green-600 hover:underline">Submit a complaint</Link>
+          <Link to="/submit">
+            <Button variant="link" className="mt-2">
+              Submit a complaint
+            </Button>
+          </Link>
         </div>
       ) : (
         <>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm bg-white rounded-xl shadow-sm border">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="text-left px-4 py-3">#</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Ward</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3"><ThumbsUp size={14} className="inline" /></th>
-                  <th className="text-left px-4 py-3"><Calendar size={14} className="inline" /></th>
-                  <th className="text-left px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+          {/* Desktop table */}
+          <div className="hidden md:block rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Ward</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <ThumbsUp className="inline h-3 w-3" />
+                  </TableHead>
+                  <TableHead>
+                    <Calendar className="inline h-3 w-3" />
+                  </TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filtered.map((c, i) => (
-                  <tr key={c._id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-gray-500">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800 max-w-[200px] truncate">{c.title}</td>
-                    <td className="px-4 py-3 text-gray-600 capitalize">{CATEGORY_LABELS[c.category] || c.category}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.ward}</td>
-                    <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-3 text-gray-600">{c.upvoteCount || 0}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{format(new Date(c.createdAt), 'dd MMM yy')}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link to={`/complaints/${c._id}`} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition">
-                          <Eye size={16} />
-                        </Link>
-                        <button onClick={() => handleDelete(c._id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition">
-                          <Trash2 size={16} />
-                        </button>
+                  <TableRow key={c._id} className="transition-colors hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate">
+                      {c.title}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground capitalize">
+                      {CATEGORY_LABELS[c.category] || c.category}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{c.ward}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={c.status} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.upvoteCount || 0}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {format(new Date(c.createdAt), "dd MMM yy")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          className="h-8 w-8 text-primary"
+                        >
+                          <Link to={`/complaints/${c._id}`} aria-label="View complaint">
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(c._id)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label="Delete complaint"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
-          <div className="md:hidden space-y-3">
+          {/* Mobile cards */}
+          <motion.div
+            variants={containerVariants}
+            initial="initial"
+            animate="animate"
+            className="md:hidden space-y-3"
+          >
             {filtered.map((c) => (
-              <div key={c._id} className="bg-white rounded-xl shadow-sm border p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-800 line-clamp-1">{c.title}</h3>
-                  <StatusBadge status={c.status} />
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
-                  <span className="capitalize">{CATEGORY_LABELS[c.category] || c.category}</span>
-                  <span>Ward {c.ward}</span>
-                  <span className="flex items-center gap-1"><ThumbsUp size={12} /> {c.upvoteCount || 0}</span>
-                  <span className="flex items-center gap-1"><Calendar size={12} /> {format(new Date(c.createdAt), 'dd MMM yy')}</span>
-                </div>
-                <div className="flex gap-3 mt-3 pt-2 border-t">
-                  <Link to={`/complaints/${c._id}`} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-                    <Eye size={14} /> View
-                  </Link>
-                  <button onClick={() => handleDelete(c._id)} className="flex items-center gap-1 text-sm text-red-600 hover:underline">
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              </div>
+              <motion.div key={c._id} variants={itemVariants}>
+                <Card className="cursor-pointer" onClick={() => navigate(`/complaints/${c._id}`)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold line-clamp-1">{c.title}</h3>
+                      <StatusBadge status={c.status} />
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
+                      <span className="capitalize">
+                        {CATEGORY_LABELS[c.category] || c.category}
+                      </span>
+                      <span>Ward {c.ward}</span>
+                      <span className="flex items-center gap-1">
+                        <ThumbsUp className="h-3 w-3" /> {c.upvoteCount || 0}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />{" "}
+                        {format(new Date(c.createdAt), "dd MMM yy")}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 mt-3 pt-2 border-t border-border">
+                      <Link
+                        to={`/complaints/${c._id}`}
+                        className="flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(c._id)}
+                        className="flex items-center gap-1 text-sm text-destructive hover:underline"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </>
       )}
-    </div>
+    </PageTransition>
   );
 }
 

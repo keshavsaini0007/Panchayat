@@ -1,23 +1,27 @@
+import { Badge } from "@/components/ui/badge";
+
 const STATUS_STYLES = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  rejected: 'bg-red-100 text-red-800',
-  in_progress: 'bg-orange-100 text-orange-800',
-  resolved: 'bg-green-100 text-green-800',
-  citizen_verification_pending: 'bg-purple-100 text-purple-800',
-  awaiting_citizen_response: 'bg-orange-100 text-orange-800',
-  reopened: 'bg-red-100 text-red-800',
-  closed: 'bg-gray-100 text-gray-800',
+  pending: { variant: "secondary" },
+  approved: { variant: "secondary" },
+  rejected: { variant: "destructive" },
+  in_progress: { variant: "secondary" },
+  resolved: { variant: "default" },
+  citizen_verification_pending: { variant: "outline" },
+  awaiting_citizen_response: { variant: "outline" },
+  reopened: { variant: "destructive" },
+  closed: { variant: "outline" },
 };
 
 function StatusBadge({ status }) {
   const label = status
-    ?.replace(/_/g, ' ')
+    ?.replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+  const style = STATUS_STYLES[status] || { variant: "secondary" };
+
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-800'}`}>
+    <Badge variant={style.variant}>
       {label}
-    </span>
+    </Badge>
   );
 }
 

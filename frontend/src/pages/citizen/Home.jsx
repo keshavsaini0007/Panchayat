@@ -1,11 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Plus, Inbox } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { getComplaints, upvoteComplaint } from '../../services/complaintService';
-import useAuthStore from '../../store/authStore';
-import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES } from '../../utils/constants';
-import ComplaintCard from '../../components/complaints/ComplaintCard';
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { Search, Plus, Inbox } from "lucide-react";
+import { motion } from "framer-motion";
+import { toast } from "@/hooks/use-toast";
+import { getComplaints, upvoteComplaint } from "@/services/complaintService";
+import useAuthStore from "@/store/authStore";
+import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES } from "@/utils/constants";
+import ComplaintCard from "@/components/complaints/ComplaintCard";
+import { PageTransition, containerVariants } from "@/components/page-transition";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function Home() {
   const user = useAuthStore((s) => s.user);
@@ -15,7 +27,12 @@ function Home() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const [filters, setFilters] = useState({ search: '', category: '', status: '', village: '' });
+  const [filters, setFilters] = useState({
+    search: "",
+    category: "",
+    status: "",
+    village: "",
+  });
 
   const fetchComplaints = useCallback(async () => {
     setLoading(true);
@@ -36,7 +53,11 @@ function Home() {
       setTotalCount(filters.search ? data.length : res.data.totalCount);
       setPages(filters.search ? 1 : res.data.pages);
     } catch {
-      toast.error('Failed to load complaints');
+      toast({
+        title: "Error",
+        description: "Failed to load complaints",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -47,7 +68,14 @@ function Home() {
   }, [fetchComplaints]);
 
   const handleUpvote = async (id) => {
-    if (!user) return toast.error('Please login to upvote');
+    if (!user) {
+      toast({
+        title: "Login required",
+        description: "Please login to upvote",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const res = await upvoteComplaint(id);
       setComplaints((prev) =>
@@ -58,7 +86,11 @@ function Home() {
         )
       );
     } catch {
-      toast.error('Failed to upvote');
+      toast({
+        title: "Error",
+        description: "Failed to upvote",
+        variant: "destructive",
+      });
     }
   };
 
@@ -68,117 +100,143 @@ function Home() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <PageTransition className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Community Complaints</h1>
-          <p className="text-gray-500 text-sm mt-1">Showing {complaints.length} of {totalCount} complaints</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Community Complaints
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Showing {complaints.length} of {totalCount} complaints
+          </p>
         </div>
         {user && (
-          <Link
-            to="/submit"
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition self-start"
-          >
-            <Plus size={18} /> Submit a Complaint
+          <Link to="/submit">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> Submit a Complaint
+            </Button>
           </Link>
         )}
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
             type="text"
             placeholder="Search by title..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            onChange={(e) => handleFilterChange("search", e.target.value)}
+            className="pl-9"
           />
         </div>
-        <select
+        <Select
           value={filters.category}
-          onChange={(e) => handleFilterChange('category', e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          onValueChange={(v) => handleFilterChange("category", v)}
         >
-          <option value="">All Categories</option>
-          {COMPLAINT_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-        <select
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {COMPLAINT_CATEGORIES.map((c) => (
+              <SelectItem key={c.value} value={c.value}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
           value={filters.status}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          onValueChange={(v) => handleFilterChange("status", v)}
         >
-          <option value="">All Statuses</option>
-          {COMPLAINT_STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        <input
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {COMPLAINT_STATUSES.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
           type="text"
           placeholder="Village..."
           value={filters.village}
-          onChange={(e) => handleFilterChange('village', e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-green-500"
+          onChange={(e) => handleFilterChange("village", e.target.value)}
+          className="w-32"
         />
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white rounded-xl shadow-sm border p-5 animate-pulse space-y-3">
-              <div className="h-5 bg-gray-200 rounded w-3/4" />
-              <div className="h-3 bg-gray-200 rounded w-1/4" />
-              <div className="h-4 bg-gray-200 rounded w-full" />
-              <div className="h-4 bg-gray-200 rounded w-2/3" />
+            <div key={i} className="space-y-3 p-5 border border-border rounded-lg">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-3 w-1/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ))}
         </div>
       ) : complaints.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <Inbox size={64} />
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Inbox className="h-16 w-16" />
           <p className="mt-4 text-lg font-medium">No complaints found</p>
-          <p className="text-sm">Try adjusting your filters or submit a new complaint.</p>
+          <p className="text-sm">
+            Try adjusting your filters or submit a new complaint.
+          </p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.div
+            variants={containerVariants}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
             {complaints.map((c) => (
               <ComplaintCard key={c._id} complaint={c} onUpvote={handleUpvote} />
             ))}
-          </div>
+          </motion.div>
 
           {pages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="px-3 py-1.5 border rounded text-sm disabled:opacity-40 hover:bg-gray-100 transition"
               >
                 Previous
-              </button>
+              </Button>
               {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-                <button
+                <Button
                   key={p}
+                  variant={p === page ? "default" : "outline"}
+                  size="sm"
                   onClick={() => setPage(p)}
-                  className={`px-3 py-1.5 rounded text-sm transition ${p === page ? 'bg-green-600 text-white' : 'border hover:bg-gray-100'}`}
+                  className="min-w-[36px]"
                 >
                   {p}
-                </button>
+                </Button>
               ))}
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 disabled={page === pages}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 border rounded text-sm disabled:opacity-40 hover:bg-gray-100 transition"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </div>
+    </PageTransition>
   );
 }
 

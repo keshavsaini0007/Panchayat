@@ -1,16 +1,34 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, LogIn } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { login } from '../../services/authService';
-import useAuthStore from '../../store/authStore';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, LogIn } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { login } from "@/services/authService";
+import useAuthStore from "@/store/authStore";
+import { PageTransition } from "@/components/page-transition";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-const schema = z.object({
-  email: z.string().email('Invalid email'),
-  password: z.string().min(1, 'Password is required'),
+const formSchema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z.string().min(1, "Password is required"),
 });
 
 function Login() {
@@ -18,77 +36,98 @@ function Login() {
   const navigate = useNavigate();
   const loginSuccess = useAuthStore((s) => s.loginSuccess);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({ resolver: zodResolver(schema) });
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
       const res = await login(data);
       loginSuccess(res.data, res.data.token);
-      toast.success('Welcome back!');
+      toast({ title: "Welcome back!", description: "Signed in successfully." });
       const role = res.data.role;
-      if (role === 'admin' || role === 'gram_pradhan') navigate('/admin');
-      else if (role === 'ward_member') navigate('/ward-dashboard');
-      else navigate('/');
+      if (role === "admin" || role === "gram_pradhan") navigate("/admin");
+      else if (role === "ward_member") navigate("/ward-dashboard");
+      else navigate("/");
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      toast({
+        title: "Login failed",
+        description: err.response?.data?.message || "Invalid credentials",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <div className="text-center mb-6">
-          <LogIn className="mx-auto text-green-600" size={36} />
-          <h1 className="text-2xl font-bold text-gray-800 mt-2">Welcome Back</h1>
-          <p className="text-gray-500 text-sm">Sign in to your Panchayat account</p>
-        </div>
+    <PageTransition className="min-h-[80vh] flex items-center justify-center px-4 py-8">
+      <Card className="w-full max-w-md border-border/50">
+        <CardHeader className="text-center">
+          <LogIn className="mx-auto text-primary" size={36} />
+          <CardTitle className="text-2xl mt-2">Welcome Back</CardTitle>
+          <CardDescription>Sign in to your Panchayat account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              {...register('email')}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="you@example.com"
-            />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          </div>
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              {...register('password')}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="••••••••"
-            />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-          </div>
+              <Button type="submit" disabled={submitting} className="w-full animate-breathe">
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          </Form>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-2 rounded-lg transition flex items-center justify-center gap-2"
-          >
-            {submitting && <Loader2 size={18} className="animate-spin" />}
-            {submitting ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Don&apos;t have an account?{' '}
-          <Link to="/register" className="text-green-600 hover:underline font-medium">Register</Link>
-        </p>
-      </div>
-    </div>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Don&apos;t have an account?{" "}
+            <Link
+              to="/register"
+              className="text-primary hover:text-accent font-medium transition-colors"
+            >
+              Register
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </PageTransition>
   );
 }
 
