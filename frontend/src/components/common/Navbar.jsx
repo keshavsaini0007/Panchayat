@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, Home, Plus, List, LayoutDashboard, Shield, Users, Sun, Moon } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Menu, X, LogOut, Home, Plus, List, LayoutDashboard, Shield, Users } from "lucide-react";
 import useAuthStore from "@/store/authStore";
 import NotificationBell from "./NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "@/components/theme-provider";
+import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 
 const NAV_ICONS = {
   Home: Home,
@@ -22,10 +22,8 @@ const NAV_ICONS = {
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, logout } = useAuthStore();
-  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-
-  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -67,7 +65,7 @@ function Navbar() {
     .slice(0, 2);
 
   return (
-    <nav className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 min-h-[10vh] z-40 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link
@@ -94,16 +92,9 @@ function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              className="hover:rotate-12 transition-transform duration-200"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+            
 
+            <ThemeSwitch />
             {user ? (
               <>
                 <NotificationBell />
@@ -131,14 +122,18 @@ function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Link to="/login">
-                  <Button variant="ghost" size="sm">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button size="sm">Register</Button>
-                </Link>
+                {location.pathname !== "/login" && (
+                  <Link to="/login">
+                    <Button variant="ghost" size="sm">
+                      Login
+                    </Button>
+                  </Link>
+                )}
+                {location.pathname !== "/register" && (
+                  <Link to="/register">
+                    <Button size="sm">Register</Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -204,14 +199,18 @@ function Navbar() {
                   </Button>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <Link to="/login" onClick={() => setMenuOpen(false)}>
-                      <Button variant="outline" className="w-full">
-                        Login
-                      </Button>
-                    </Link>
-                    <Link to="/register" onClick={() => setMenuOpen(false)}>
-                      <Button className="w-full">Register</Button>
-                    </Link>
+                    {location.pathname !== "/login" && (
+                      <Link to="/login" onClick={() => setMenuOpen(false)}>
+                        <Button variant="outline" className="w-full">
+                          Login
+                        </Button>
+                      </Link>
+                    )}
+                    {location.pathname !== "/register" && (
+                      <Link to="/register" onClick={() => setMenuOpen(false)}>
+                        <Button className="w-full">Register</Button>
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>

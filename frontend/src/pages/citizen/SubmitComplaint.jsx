@@ -6,7 +6,8 @@ import { z } from "zod";
 import {
   Loader2, MapPin, Upload, X, Check, ChevronLeft, ChevronRight, Crosshair, AlertCircle,
 } from "lucide-react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, useMapEvents } from "react-leaflet";
+import { MapTileLayer } from "@/components/map/MapTileLayer";
 import L from "leaflet";
 import { toast } from "@/hooks/use-toast";
 import { createComplaint } from "@/services/complaintService";
@@ -16,7 +17,7 @@ import { compressImage } from "@/utils/imageCompression";
 import { validateImageFile, validateImageCount, MAX_IMAGES } from "@/utils/imageValidation";
 import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -294,11 +295,10 @@ function SubmitComplaint() {
       {step === 1 && (
         <Card>
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Basic Information</h2>
+            <h2 className="text-lg font-semibold pb-3">Basic Information</h2>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" {...step1Form.register("title")} placeholder="Brief title of the issue" />
+              <FloatingLabelInput id="title" label="Title" {...step1Form.register("title")} />
               {step1Form.formState.errors.title && (
                 <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.title.message}</p>
               )}
@@ -334,15 +334,13 @@ function SubmitComplaint() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="village">Village</Label>
-                <Input id="village" {...step1Form.register("village")} placeholder="Village name" />
+                <FloatingLabelInput id="village" label="Village" {...step1Form.register("village")} />
                 {step1Form.formState.errors.village && (
                   <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.village.message}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ward">Ward</Label>
-                <Input id="ward" {...step1Form.register("ward")} placeholder="Ward number" />
+                <FloatingLabelInput id="ward" label="Ward" {...step1Form.register("ward")} />
                 {step1Form.formState.errors.ward && (
                   <p className="text-sm font-medium text-destructive">{step1Form.formState.errors.ward.message}</p>
                 )}
@@ -381,12 +379,12 @@ function SubmitComplaint() {
               </Button>
               <div className="h-64 rounded-xl overflow-hidden border border-border">
                 <MapContainer center={center} zoom={mapZoom} className="h-full w-full" key={`${position.lat}-${position.lng}-${mapZoom}`}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <MapTileLayer />
                   <LocationMarker position={marker} onPositionChange={(p) => setMarker(p)} onMapClick={handleMapClick} />
                 </MapContainer>
               </div>
               {marker && (
-                <div className="mt-3 p-3 border border-border rounded-lg text-sm space-y-1">
+                <div className="mt-3 p-3 border  border-border rounded-lg text-sm space-y-1">
                   <p className="font-medium flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5" /> Selected Location
                   </p>
@@ -411,12 +409,11 @@ function SubmitComplaint() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address (manual override)</Label>
-              <Input
+              <FloatingLabelInput
                 id="address"
+                label="Address (manual override)"
                 value={step2Location}
                 onChange={(e) => setStep2Location(e.target.value)}
-                placeholder="e.g. Near the main square"
               />
             </div>
 

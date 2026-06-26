@@ -18,7 +18,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,12 +100,16 @@ function WardDashboard() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-4">
-        <Skeleton className="h-8 w-1/3" />
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-20" />)}
         </div>
-        <Skeleton className="h-64" />
+        <div className="flex flex-wrap gap-3">
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[180px]" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
@@ -232,8 +236,7 @@ function WardDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Assign To (User ID)</Label>
-              <Input name="assign" type="text" defaultValue={modal?.assignedTo?._id || ""} placeholder="User ID" />
+              <FloatingLabelInput name="assign" label="Assign To (User ID)" type="text" defaultValue={modal?.assignedTo?._id || ""} />
             </div>
             <div className="space-y-2">
               <Label>Resolution Remarks</Label>

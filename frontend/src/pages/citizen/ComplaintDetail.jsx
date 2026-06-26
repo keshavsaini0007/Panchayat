@@ -4,7 +4,8 @@ import {
   ThumbsUp, MapPin, Calendar, User, X, ChevronLeft, Send, ExternalLink, CheckCircle, AlertTriangle, Clock, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { MapContainer, Marker } from "react-leaflet";
+import { MapTileLayer } from "@/components/map/MapTileLayer";
 import L from "leaflet";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -226,7 +227,7 @@ function ComplaintDetail() {
             <div className="mt-4">
               <div className="h-48 rounded-xl overflow-hidden border border-border">
                 <MapContainer center={[complaint.location.lat, complaint.location.lng]} zoom={14} className="h-full w-full" zoomControl={false} dragging={false}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <MapTileLayer />
                   <Marker position={[complaint.location.lat, complaint.location.lng]} />
                 </MapContainer>
               </div>
@@ -368,9 +369,9 @@ function ComplaintDetail() {
                 </SelectContent>
               </Select>
               {(newStatus === "rejected" || newStatus === "resolved") && (
-                <Input
+                <FloatingLabelInput
                   type="text"
-                  placeholder={newStatus === "rejected" ? "Rejection reason" : "Resolution remarks"}
+                  label={newStatus === "rejected" ? "Rejection reason" : "Resolution remarks"}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   className="flex-1 min-w-[200px]"

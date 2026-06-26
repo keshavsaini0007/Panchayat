@@ -1,28 +1,34 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Trash2, Inbox, Loader2 } from "lucide-react";
+import { Search, Trash2, Inbox, Loader2, Shield, ShieldAlert, UserCheck, UserCog } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { getAllUsers, updateUserRole, deleteUser } from "@/services/adminService";
 import useAuthStore from "@/store/authStore";
 import { USER_ROLES } from "@/utils/constants";
 import { PageTransition } from "@/components/page-transition";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const ROLE_BADGE = {
-  citizen: "",
-  ward_member: "",
-  gram_pradhan: "",
-  admin: "",
+const ROLE_CONFIG = {
+  citizen: { label: "Citizen", variant: "secondary" },
+  ward_member: { label: "Ward Member", variant: "outline" },
+  gram_pradhan: { label: "Gram Pradhan", variant: "default" },
+  admin: { label: "Admin", variant: "destructive" },
 };
 
 const TABS = [
@@ -32,6 +38,64 @@ const TABS = [
     value: r,
   })),
 ];
+
+function getInitials(name) {
+  return (name || "")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function DeleteDialog({ userId, userName, currentUserId, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete(userId);
+      setOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={userId === currentUserId}
+          className={`h-8 w-8 ${userId === currentUserId ? "opacity-40 cursor-not-allowed" : "text-destructive hover:text-destructive hover:bg-destructive/10"}`}
+          aria-label="Delete user"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete User</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete <span className="font-medium text-foreground">{userName}</span>?
+            This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function ManageUsers() {
   const currentUser = useAuthStore((s) => s.user);
@@ -54,7 +118,6 @@ function ManageUsers() {
   }, [activeTab]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
   useEffect(() => { setLoading(true); }, [activeTab]);
 
   const handleRoleChange = async (userId, role) => {
@@ -62,7 +125,9 @@ function ManageUsers() {
       await updateUserRole(userId, role);
       setUsers((prev) =>
         prev.map((u) =>
-          u._id === userId ? { ...u, role, isVerified: ["ward_member", "gram_pradhan"].includes(role) ? true : u.isVerified } : u
+          u._id === userId
+            ? { ...u, role, isVerified: ["ward_member", "gram_pradhan"].includes(role) ? true : u.isVerified }
+            : u
         )
       );
       toast({ title: "Role updated" });
@@ -72,7 +137,6 @@ function ManageUsers() {
   };
 
   const handleDelete = async (userId) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       await deleteUser(userId);
       setUsers((prev) => prev.filter((u) => u._id !== userId));
@@ -90,112 +154,207 @@ function ManageUsers() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-4">
-        <Skeleton className="h-8 w-1/3" />
-        <Skeleton className="h-10 w-full" />
-        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-px w-full" />
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <Skeleton className="h-10 w-full lg:w-72 xl:w-80" />
+          <Skeleton className="h-10 w-full lg:w-auto max-w-md" />
+        </div>
+        <div className="hidden md:block space-y-1 rounded-lg border">
+          <Skeleton className="h-12 w-full rounded-t-lg" />
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[73px] w-full" />)}
+        </div>
+        <div className="block md:hidden space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-lg" />)}
+        </div>
       </div>
     );
   }
 
   return (
-    <PageTransition className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold tracking-tight mb-1">Manage Users</h1>
-      <p className="text-sm text-muted-foreground mb-6">{users.length} user(s)</p>
+    <PageTransition className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Manage Users</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {users.length} user{users.length !== 1 ? "s" : ""} on the platform
+        </p>
+      </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
+      <Separator />
+
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <div className="relative w-full lg:w-72 xl:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            type="text"
             placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:w-auto overflow-x-auto pb-1">
+          <TabsList className="inline-flex w-max">
+            {TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="whitespace-nowrap">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="overflow-x-auto">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <Card>
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Inbox className="h-16 w-16 mb-4" />
+              <p className="text-lg font-medium">No users found</p>
+              <p className="text-sm">Try adjusting your search or filter.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead className="hidden lg:table-cell">Email</TableHead>
+                      <TableHead className="hidden xl:table-cell">Phone</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="hidden xl:table-cell">Village</TableHead>
+                      <TableHead className="hidden xl:table-cell">Ward</TableHead>
+                      <TableHead className="hidden sm:table-cell">Status</TableHead>
+                      <TableHead className="hidden 2xl:table-cell">Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((u) => (
+                      <TableRow key={u._id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarFallback className="text-xs bg-muted">
+                                {getInitials(u.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{u.name}</p>
+                              {u.role === "admin" && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Shield className="h-3 w-3 shrink-0" /> Admin
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground max-w-[160px] truncate">{u.email}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.phone}</TableCell>
+                        <TableCell>
+                          <Badge variant={ROLE_CONFIG[u.role]?.variant || "outline"} className="capitalize whitespace-nowrap">
+                            {ROLE_CONFIG[u.role]?.label || u.role.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.village}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.ward}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant={u.isVerified ? "default" : "outline"} className={`whitespace-nowrap ${u.isVerified ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : ""}`}>
+                            {u.isVerified ? "Verified" : "Pending"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden 2xl:table-cell text-muted-foreground text-xs whitespace-nowrap">
+                          {u.createdAt ? format(new Date(u.createdAt), "dd MMM yyyy") : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Select value={u.role} onValueChange={(v) => handleRoleChange(u._id, v)}>
+                              <SelectTrigger className="w-[130px] h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {USER_ROLES.map((r) => (
+                                  <SelectItem key={r} value={r}>
+                                    {r.replace("_", " ")}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <DeleteDialog
+                              userId={u._id}
+                              userName={u.name}
+                              currentUserId={currentUser?._id}
+                              onDelete={handleDelete}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <Inbox className="h-16 w-16" />
-          <p className="mt-4 text-lg font-medium">No users found</p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Village</TableHead>
-                <TableHead>Ward</TableHead>
-                <TableHead>Verified</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((u) => (
-                <TableRow key={u._id} className="transition-colors hover:bg-muted/50">
-                  <TableCell className="font-medium whitespace-nowrap">{u.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.phone}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`capitalize ${ROLE_BADGE[u.role] || ""}`}>
-                      {u.role.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{u.village}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.ward}</TableCell>
-                  <TableCell>
-                    <Badge variant={u.isVerified ? "default" : "outline"}>
-                      {u.isVerified ? "Verified" : "Pending"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                    {u.createdAt ? format(new Date(u.createdAt), "dd MMM yyyy") : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+              {/* Mobile cards */}
+              <div className="block md:hidden divide-y divide-border">
+                {filtered.map((u) => (
+                  <div key={u._id} className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="h-10 w-10 shrink-0">
+                          <AvatarFallback className="text-xs bg-muted">
+                            {getInitials(u.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{u.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                      </div>
+                      <Badge variant={ROLE_CONFIG[u.role]?.variant || "outline"} className="capitalize shrink-0">
+                        {ROLE_CONFIG[u.role]?.label || u.role.replace("_", " ")}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {u.phone && <span>{u.phone}</span>}
+                      {u.village && <span>Village: {u.village}</span>}
+                      {u.ward && <span>Ward: {u.ward}</span>}
+                      <Badge variant={u.isVerified ? "default" : "outline"} className={`text-xs ${u.isVerified ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : ""}`}>
+                        {u.isVerified ? "Verified" : "Pending"}
+                      </Badge>
+                      {u.createdAt && (
+                        <span className="text-muted-foreground">{format(new Date(u.createdAt), "dd MMM yyyy")}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
                       <Select value={u.role} onValueChange={(v) => handleRoleChange(u._id, v)}>
-                        <SelectTrigger className="w-[130px] h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs flex-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {USER_ROLES.map((r) => (
-                            <SelectItem key={r} value={r}>{r.replace("_", " ")}</SelectItem>
+                            <SelectItem key={r} value={r}>
+                              {r.replace("_", " ")}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(u._id)}
-                        disabled={u._id === currentUser?._id}
-                        className={`h-8 w-8 ${u._id === currentUser?._id ? "opacity-40 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
-                        aria-label="Delete user"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <DeleteDialog
+                        userId={u._id}
+                        userName={u.name}
+                        currentUserId={currentUser?._id}
+                        onDelete={handleDelete}
+                      />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </PageTransition>
   );
 }
