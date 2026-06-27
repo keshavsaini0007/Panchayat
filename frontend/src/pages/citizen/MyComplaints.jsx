@@ -179,21 +179,21 @@ function MyComplaints() {
               <TableBody>
                 {filtered.map((c, i) => (
                   <TableRow key={c._id} className="transition-colors hover:bg-muted/50">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="text-slate-200">{i + 1}</TableCell>
                     <TableCell className="font-medium max-w-[200px] truncate">
                       {c.title}
                     </TableCell>
-                    <TableCell className="text-muted-foreground capitalize">
+                    <TableCell className="text-slate-200 capitalize">
                       {CATEGORY_LABELS[c.category] || c.category}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{c.ward}</TableCell>
+                    <TableCell className="text-slate-200">{c.ward}</TableCell>
                     <TableCell>
                       <StatusBadge status={c.status} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-slate-200">
                       {c.upvoteCount || 0}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
+                    <TableCell className="text-slate-200 text-xs">
                       {format(new Date(c.createdAt), "dd MMM yy")}
                     </TableCell>
                     <TableCell>

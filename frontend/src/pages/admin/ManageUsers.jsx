@@ -177,7 +177,7 @@ function ManageUsers() {
     <PageTransition className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Manage Users</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-slate-200 mt-1">
           {users.length} user{users.length !== 1 ? "s" : ""} on the platform
         </p>
       </div>
@@ -186,7 +186,7 @@ function ManageUsers() {
 
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="relative w-full lg:w-72 xl:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-200" />
           <Input
             placeholder="Search by name or email..."
             value={search}
@@ -209,7 +209,7 @@ function ManageUsers() {
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-20 text-slate-200">
               <Inbox className="h-16 w-16 mb-4" />
               <p className="text-lg font-medium">No users found</p>
               <p className="text-sm">Try adjusting your search or filter.</p>
@@ -245,28 +245,28 @@ function ManageUsers() {
                             <div className="min-w-0">
                               <p className="font-medium text-sm truncate">{u.name}</p>
                               {u.role === "admin" && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <p className="text-xs text-slate-200 flex items-center gap-1">
                                   <Shield className="h-3 w-3 shrink-0" /> Admin
                                 </p>
                               )}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground max-w-[160px] truncate">{u.email}</TableCell>
-                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.phone}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-slate-200 max-w-[160px] truncate">{u.email}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-slate-200">{u.phone}</TableCell>
                         <TableCell>
                           <Badge variant={ROLE_CONFIG[u.role]?.variant || "outline"} className="capitalize whitespace-nowrap">
                             {ROLE_CONFIG[u.role]?.label || u.role.replace("_", " ")}
                           </Badge>
                         </TableCell>
-                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.village}</TableCell>
-                        <TableCell className="hidden xl:table-cell text-muted-foreground">{u.ward}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-slate-200">{u.village}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-slate-200">{u.ward}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <Badge variant={u.isVerified ? "default" : "outline"} className={`whitespace-nowrap ${u.isVerified ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : ""}`}>
                             {u.isVerified ? "Verified" : "Pending"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="hidden 2xl:table-cell text-muted-foreground text-xs whitespace-nowrap">
+                        <TableCell className="hidden 2xl:table-cell text-slate-200 text-xs whitespace-nowrap">
                           {u.createdAt ? format(new Date(u.createdAt), "dd MMM yyyy") : "-"}
                         </TableCell>
                         <TableCell className="text-right">
@@ -310,14 +310,14 @@ function ManageUsers() {
                         </Avatar>
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{u.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                          <p className="text-xs text-slate-200 truncate">{u.email}</p>
                         </div>
                       </div>
                       <Badge variant={ROLE_CONFIG[u.role]?.variant || "outline"} className="capitalize shrink-0">
                         {ROLE_CONFIG[u.role]?.label || u.role.replace("_", " ")}
                       </Badge>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-200">
                       {u.phone && <span>{u.phone}</span>}
                       {u.village && <span>Village: {u.village}</span>}
                       {u.ward && <span>Ward: {u.ward}</span>}
@@ -325,7 +325,7 @@ function ManageUsers() {
                         {u.isVerified ? "Verified" : "Pending"}
                       </Badge>
                       {u.createdAt && (
-                        <span className="text-muted-foreground">{format(new Date(u.createdAt), "dd MMM yyyy")}</span>
+                        <span className="text-slate-200">{format(new Date(u.createdAt), "dd MMM yyyy")}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 pt-1">

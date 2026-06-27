@@ -189,16 +189,16 @@ function WardDashboard() {
           </TableHeader>
           <TableBody>
             {complaints.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No complaints in your ward</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-200">No complaints in your ward</TableCell></TableRow>
             ) : (
               complaints.map((c) => (
                 <TableRow key={c._id} className={`transition-colors hover:bg-muted/50 ${PRIORITY_TINT[c.priority] || ""}`}>
                   <TableCell className="font-medium max-w-[200px] truncate">{c.title}</TableCell>
-                  <TableCell className="text-muted-foreground capitalize whitespace-nowrap">{CATEGORY_LABELS[c.category] || c.category}</TableCell>
+                  <TableCell className="text-slate-200 capitalize whitespace-nowrap">{CATEGORY_LABELS[c.category] || c.category}</TableCell>
                   <TableCell><StatusBadge status={c.status} /></TableCell>
                   <TableCell className="capitalize text-sm">{c.priority}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.upvoteCount || 0}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(c.createdAt), "dd MMM yyyy")}</TableCell>
+                  <TableCell className="text-slate-200">{c.upvoteCount || 0}</TableCell>
+                  <TableCell className="text-slate-200 text-xs whitespace-nowrap">{format(new Date(c.createdAt), "dd MMM yyyy")}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
