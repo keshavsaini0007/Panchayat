@@ -50,7 +50,13 @@ function WardDashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("date");
+  const fetchingRef = useRef(false);
   const [modal, setModal] = useState(null);
+  const [modalStatus, setModalStatus] = useState("");
+  const [modalReason, setModalReason] = useState("");
+  const [modalRemarks, setModalRemarks] = useState("");
+  const [modalAssign, setModalAssign] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const fetchComplaints = useCallback(async () => {
     setLoading(true);
@@ -81,20 +87,29 @@ function WardDashboard() {
     reopened: complaints.filter((c) => c.status === "reopened").length,
   };
 
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const payload = { status: form.status.value };
-    if (payload.status === "rejected") payload.rejectionReason = form.reason.value;
-    if (payload.status === "resolved") payload.resolutionRemarks = form.resolutionRemarks.value;
-    if (form.assign.value) payload.assignedTo = form.assign.value;
+  const handleUpdate = async () => {
+    if (!modal || !modalStatus) {
+      toast({ title: "Please select a status", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const payload = { status: modalStatus };
+    if (modalStatus === "rejected" && modalReason) payload.rejectionReason = modalReason;
+    if (modalStatus === "resolved") payload.resolutionRemarks = modalRemarks || "";
+    if (modalAssign) payload.assignedTo = modalAssign;
     try {
       const res = await updateStatus(modal._id, payload);
       setComplaints((prev) => prev.map((c) => (c._id === modal._id ? res.data : c)));
       setModal(null);
+      setModalStatus("");
+      setModalReason("");
+      setModalRemarks("");
+      setModalAssign("");
       toast({ title: "Status updated" });
     } catch (err) {
       toast({ title: err.response?.data?.message || "Failed to update", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -218,13 +233,13 @@ function WardDashboard() {
         </div>
       )}
 
-      <Dialog open={!!modal} onOpenChange={() => setModal(null)}>
+      <Dialog open={!!modal} onOpenChange={() => { setModal(null); setModalStatus(""); setModalReason(""); setModalRemarks(""); setModalAssign(""); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Update Status</DialogTitle></DialogHeader>
-          <form onSubmit={handleUpdate} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select name="status" defaultValue={modal?.status}>
+              <Select value={modalStatus} onValueChange={setModalStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -236,21 +251,23 @@ function WardDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <FloatingLabelInput name="assign" label="Assign To (User ID)" type="text" defaultValue={modal?.assignedTo?._id || ""} />
+              <FloatingLabelInput label="Assign To (User ID)" type="text" value={modalAssign} onChange={(e) => setModalAssign(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Resolution Remarks</Label>
-              <Textarea name="resolutionRemarks" rows={2} placeholder="Describe the resolution" />
+              <Textarea rows={2} placeholder="Describe the resolution" value={modalRemarks} onChange={(e) => setModalRemarks(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Rejection Reason</Label>
-              <Textarea name="reason" rows={2} placeholder="Required if rejecting" />
+              <Textarea rows={2} placeholder="Required if rejecting" value={modalReason} onChange={(e) => setModalReason(e.target.value)} />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancel</Button>
-              <Button type="submit">Save</Button>
+              <Button variant="outline" onClick={() => { setModal(null); setModalStatus(""); setModalReason(""); setModalRemarks(""); setModalAssign(""); }}>Cancel</Button>
+              <Button onClick={handleUpdate} disabled={saving || !modalStatus}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
             </DialogFooter>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </PageTransition>

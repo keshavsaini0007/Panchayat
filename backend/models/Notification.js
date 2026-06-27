@@ -12,4 +12,7 @@ const notificationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
+notificationSchema.index({ complaintId: 1 });
+
 module.exports = mongoose.model('Notification', notificationSchema);

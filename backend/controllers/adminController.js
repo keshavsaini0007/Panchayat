@@ -1,12 +1,13 @@
 const User = require('../models/User');
 const Complaint = require('../models/Complaint');
+const { validationResult } = require('express-validator');
 
 const getAllUsers = async (req, res, next) => {
   try {
     const filter = {};
     if (req.query.role) filter.role = req.query.role;
     const users = await User.find(filter).select('-password');
-    res.status(200).json({ users });
+    res.status(200).json({ success: true, users });
   } catch (err) {
     next(err);
   }
@@ -14,9 +15,14 @@ const getAllUsers = async (req, res, next) => {
 
 const updateUserRole = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     user.role = req.body.role;
@@ -27,7 +33,7 @@ const updateUserRole = async (req, res, next) => {
     await user.save();
 
     const updated = await User.findById(user._id).select('-password');
-    res.status(200).json(updated);
+    res.status(200).json({ success: true, user: updated });
   } catch (err) {
     next(err);
   }
@@ -36,16 +42,16 @@ const updateUserRole = async (req, res, next) => {
 const deleteUser = async (req, res, next) => {
   try {
     if (req.params.id === req.user._id.toString()) {
-      return res.status(400).json({ message: 'Cannot delete yourself' });
+      return res.status(400).json({ success: false, message: 'Cannot delete yourself' });
     }
 
     const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     await user.deleteOne();
-    res.status(200).json({ message: 'User deleted' });
+    res.status(200).json({ success: true, message: 'User deleted' });
   } catch (err) {
     next(err);
   }
@@ -73,6 +79,7 @@ const getAnalytics = async (req, res, next) => {
     ]);
 
     res.status(200).json({
+      success: true,
       totalComplaints,
       byStatus,
       byCategory,

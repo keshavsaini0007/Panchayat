@@ -5,16 +5,21 @@ const generateToken = require('../utils/generateToken');
 
 const registerUser = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const { name, email, phone, password, role, village, ward } = req.body;
 
     const existing = await User.findOne({ email });
     if (existing) {
-      return res.status(400).json({ message: 'Email already registered' });
+      return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
     const otpRecord = await OtpVerification.findOne({ email, verified: true });
     if (!otpRecord) {
-      return res.status(400).json({ message: 'Email not verified. Please complete OTP verification first.' });
+      return res.status(400).json({ success: false, message: 'Email not verified. Please complete OTP verification first.' });
     }
 
     await OtpVerification.deleteMany({ email });
@@ -29,6 +34,7 @@ const registerUser = async (req, res, next) => {
     const token = generateToken(user._id, user.role);
 
     res.status(201).json({
+      success: true,
       _id: user._id, name: user.name, email: user.email, phone: user.phone,
       role: user.role, village: user.village, ward: user.ward, token,
     });
@@ -39,16 +45,22 @@ const registerUser = async (req, res, next) => {
 
 const loginUser = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const token = generateToken(user._id, user.role);
 
     res.status(200).json({
+      success: true,
       _id: user._id, name: user.name, email: user.email, phone: user.phone,
       role: user.role, village: user.village, ward: user.ward, token,
     });
@@ -61,6 +73,7 @@ const getMe = async (req, res, next) => {
   try {
     const user = req.user;
     res.status(200).json({
+      success: true,
       _id: user._id, name: user.name, email: user.email, phone: user.phone,
       role: user.role, village: user.village, ward: user.ward, profileImage: user.profileImage,
     });

@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ role: 1, ward: 1 });
+
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(10);

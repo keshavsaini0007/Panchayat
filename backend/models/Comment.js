@@ -8,4 +8,7 @@ const commentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+commentSchema.index({ complaintId: 1, createdAt: -1 });
+commentSchema.index({ userId: 1 });
+
 module.exports = mongoose.model('Comment', commentSchema);

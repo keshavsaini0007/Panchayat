@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +14,7 @@ import { createComplaint } from "@/services/complaintService";
 import { COMPLAINT_CATEGORIES } from "@/utils/constants";
 import { reverseGeocode } from "@/services/geocodingService";
 import { compressImage } from "@/utils/imageCompression";
-import { validateImageFile, validateImageCount, MAX_IMAGES } from "@/utils/imageValidation";
+import { validateImageFile, validateImageCount, validateImageDimensions, MAX_IMAGES } from "@/utils/imageValidation";
 import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
 import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
@@ -52,8 +52,7 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 };
 
-let imageIdCounter = 0;
-const generateImageId = () => `img_${++imageIdCounter}_${Date.now()}`;
+const generateImageId = () => `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 function LocationMarker({ position, onPositionChange, onMapClick }) {
   useMapEvents({
@@ -82,18 +81,24 @@ function SubmitComplaint() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
 
+  const imagesRef = useRef([]);
+
   const [step1Data, setStep1Data] = useState(null);
 
-  const step1Form = useForm({ resolver: zodResolver(step1Schema) });
+  const resolver = useMemo(() => zodResolver(step1Schema), []);
+  const step1Form = useForm({ resolver });
   const [step2Location, setStep2Location] = useState("");
 
   const canProceedFromStep1 = step === 1 && step1Form.formState.isValid;
 
   useEffect(() => {
     if (step === 1 && step1Data) {
-      Object.entries(step1Data).forEach(([key, val]) => step1Form.setValue(key, val));
+      const values = step1Form.getValues();
+      Object.entries(step1Data).forEach(([key, val]) => {
+        if (values[key] !== val) step1Form.setValue(key, val);
+      });
     }
-  }, [step, step1Data, step1Form]);
+  }, [step, step1Data]);
 
   const handleStep1Next = async () => {
     const valid = await step1Form.trigger();
@@ -130,6 +135,20 @@ function SubmitComplaint() {
 
     if (validFiles.length === 0) return;
 
+    const dimensionErrors = [];
+    for (const file of validFiles) {
+      const dimResult = await validateImageDimensions(file);
+      if (!dimResult.valid) {
+        dimensionErrors.push({ name: file.name, error: dimResult.error });
+      }
+    }
+    if (dimensionErrors.length > 0) {
+      dimensionErrors.forEach(({ name, error }) =>
+        toast({ title: `${name}: ${error}`, variant: "destructive" })
+      );
+      return;
+    }
+
     const newImages = validFiles.map((file) => ({
       id: generateImageId(),
       file,
@@ -141,7 +160,11 @@ function SubmitComplaint() {
       status: "pending",
     }));
 
-    setImages((prev) => [...prev, ...newImages]);
+    setImages((prev) => {
+      const updated = [...prev, ...newImages];
+      imagesRef.current = updated;
+      return updated;
+    });
 
     for (const img of newImages) {
       setImages((prev) =>
@@ -175,8 +198,10 @@ function SubmitComplaint() {
   const removeImage = (id) => {
     setImages((prev) => {
       const img = prev.find((i) => i.id === id);
-      if (img) URL.revokeObjectURL(img.preview);
-      return prev.filter((i) => i.id !== id);
+      if (img) { try { URL.revokeObjectURL(img.preview); } catch {} }
+      const updated = prev.filter((i) => i.id !== id);
+      imagesRef.current = updated;
+      return updated;
     });
   };
 
@@ -268,7 +293,15 @@ function SubmitComplaint() {
   };
 
   useEffect(() => {
-    return () => images.forEach((img) => URL.revokeObjectURL(img.preview));
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
+    return () => {
+      imagesRef.current.forEach((img) => {
+        try { URL.revokeObjectURL(img.preview); } catch {}
+      });
+    };
   }, []);
 
   return (

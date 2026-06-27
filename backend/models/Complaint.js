@@ -39,6 +39,13 @@ const complaintSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+complaintSchema.index({ createdBy: 1, createdAt: -1 });
+complaintSchema.index({ status: 1, createdAt: -1 });
+complaintSchema.index({ ward: 1, status: 1, createdAt: -1 });
+complaintSchema.index({ village: 1, status: 1 });
+complaintSchema.index({ category: 1 });
+complaintSchema.index({ resolvedAt: 1 });
+
 complaintSchema.pre('save', function () {
   this.updatedAt = Date.now();
   this.upvoteCount = this.upvotes.length;

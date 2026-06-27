@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,8 +28,9 @@ function Login() {
   const navigate = useNavigate();
   const loginSuccess = useAuthStore((s) => s.loginSuccess);
 
+  const resolver = useMemo(() => zodResolver(formSchema), []);
   const form = useForm({
-    resolver: zodResolver(formSchema),
+    resolver,
     defaultValues: { email: "", password: "" },
   });
 

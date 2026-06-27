@@ -5,6 +5,7 @@ import useAuthStore from '../store/authStore';
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 15000,
 });
 
 api.interceptors.request.use((config) => {
@@ -18,6 +19,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.code === 'ECONNABORTED') {
+      return Promise.reject(new Error('Request timed out. Please check your connection.'));
+    }
+    if (!error.response) {
+      return Promise.reject(new Error('Network error. Please check your connection.'));
+    }
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
       window.location.href = '/login';

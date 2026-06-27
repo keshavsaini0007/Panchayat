@@ -77,7 +77,17 @@ function AdminDashboard() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <AlertTriangle className="h-16 w-16 mb-4" />
+          <p className="text-lg font-medium">Failed to load analytics</p>
+          <p className="text-sm">Please try refreshing the page.</p>
+        </div>
+      </div>
+    );
+  }
 
   const resolvedCount = data.byStatus?.find((s) => s._id === "resolved")?.count || 0;
   const pendingCount = data.byStatus?.find((s) => s._id === "pending")?.count || 0;

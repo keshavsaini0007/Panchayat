@@ -146,11 +146,14 @@ function MyComplaints() {
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Inbox className="h-16 w-16" />
           <p className="mt-4 text-lg font-medium">No complaints found</p>
+          <span>
+
           <Link to="/submit">
             <Button variant="link" className="mt-2">
               Submit a complaint
             </Button>
           </Link>
+          </span>
         </div>
       ) : (
         <>

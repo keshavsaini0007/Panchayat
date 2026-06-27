@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, RefreshCw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from "@/services/complaintService";
@@ -8,12 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 const NOTIF_ICONS = {
@@ -27,28 +23,40 @@ function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const fetchRef = useRef(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await getNotifications();
-      setNotifications(res.data.notifications);
-      setUnreadCount(res.data.unreadCount);
-    } catch {
-      // silently fail
+      setNotifications(res.data?.notifications || []);
+      setUnreadCount(res.data?.unreadCount || 0);
+    } catch (err) {
+      setError(err?.message || "Failed to load notifications");
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleOpenChange = (isOpen) => {
     setOpen(isOpen);
-    if (isOpen && !fetchRef.current) {
-      fetchRef.current = true;
-      fetchNotifications();
+    if (isOpen) {
+      if (!fetchRef.current) {
+        fetchRef.current = true;
+        fetchNotifications();
+      }
+    } else {
+      fetchRef.current = false;
     }
+  };
+
+  const handleRetry = () => {
+    fetchNotifications();
   };
 
   const handleMarkRead = async (id, complaintId) => {
@@ -113,7 +121,16 @@ function NotificationBell() {
         <DropdownMenuSeparator />
         <ScrollArea className="h-[300px]">
           {loading ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
+            <div className="p-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+            </div>
+          ) : error ? (
+            <div className="p-4 text-center text-sm text-muted-foreground space-y-2">
+              <p>{error}</p>
+              <Button variant="outline" size="sm" onClick={handleRetry}>
+                <RefreshCw className="mr-1 h-3 w-3" /> Retry
+              </Button>
+            </div>
           ) : notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
           ) : (
@@ -121,27 +138,17 @@ function NotificationBell() {
               <DropdownMenuItem
                 key={n._id}
                 onClick={() => handleMarkRead(n._id, n.complaintId?._id)}
-                className={`cursor-pointer px-4 py-3 ${
-                  !n.read ? "bg-muted/30 font-medium" : ""
-                }`}
+                className={`cursor-pointer px-4 py-3 ${!n.read ? "bg-muted/30 font-medium" : ""}`}
               >
                 <div className="flex items-start gap-2 w-full">
                   <span className="text-lg mt-0.5">{NOTIF_ICONS[n.type] || "📋"}</span>
                   <div className="min-w-0 flex-1">
-                    <p
-                      className={`text-sm ${
-                        !n.read ? "text-foreground" : "text-muted-foreground"
-                      }`}
-                    >
-                      {n.message}
-                    </p>
+                    <p className={`text-sm ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(n.createdAt), "dd MMM yyyy, h:mm a")}
+                      {n.createdAt ? format(new Date(n.createdAt), "dd MMM yyyy, h:mm a") : ""}
                     </p>
                   </div>
-                  {!n.read && (
-                    <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1.5" />
-                  )}
+                  {!n.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1.5" />}
                 </div>
               </DropdownMenuItem>
             ))

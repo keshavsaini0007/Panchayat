@@ -24,7 +24,7 @@ function ComplaintCard({ complaint, onUpvote }) {
   const hasUpvoted =
     user &&
     complaint.upvotes?.some(
-      (id) => id === user._id || id?.toString() === user._id
+      (id) => String(id) === String(user._id)
     );
 
   return (

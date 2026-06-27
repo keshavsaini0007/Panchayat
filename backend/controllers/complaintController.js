@@ -5,14 +5,20 @@ const AuditLog = require('../models/AuditLog');
 const Notification = require('../models/Notification');
 const { cloudinary, MAX_IMAGES, MAX_FILE_SIZE } = require('../config/cloudinary');
 const { sendVerificationEmail } = require('../utils/emailService');
+const { validationResult } = require('express-validator');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const createComplaint = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const { title, description, category, ward, village } = req.body;
     if (!req.body.location) {
-      return res.status(400).json({ message: 'Location is required' });
+      return res.status(400).json({ success: false, message: 'Location is required' });
     }
     const location = JSON.parse(req.body.location);
 
@@ -21,11 +27,11 @@ const createComplaint = async (req, res, next) => {
       for (const file of req.files) {
         if (!ALLOWED_TYPES.includes(file.mimetype)) {
           await cloudinary.uploader.destroy(file.filename);
-          return res.status(400).json({ message: `"${file.originalname}": Only JPG, PNG and WEBP images are allowed.` });
+          return res.status(400).json({ success: false, message: `"${file.originalname}": Only JPG, PNG and WEBP images are allowed.` });
         }
         if (file.size > MAX_FILE_SIZE) {
           await cloudinary.uploader.destroy(file.filename);
-          return res.status(400).json({ message: `"${file.originalname}": Image size cannot exceed 5 MB.` });
+          return res.status(400).json({ success: false, message: `"${file.originalname}": Image size cannot exceed 5 MB.` });
         }
         images.push(file.path);
       }
@@ -37,7 +43,7 @@ const createComplaint = async (req, res, next) => {
             await cloudinary.uploader.destroy(publicId);
           }
         }
-        return res.status(400).json({ message: `Maximum ${MAX_IMAGES} images allowed.` });
+        return res.status(400).json({ success: false, message: `Maximum ${MAX_IMAGES} images allowed.` });
       }
     }
 
@@ -46,17 +52,14 @@ const createComplaint = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
-    res.status(201).json(complaint);
+    res.status(201).json({ success: true, complaint });
   } catch (err) {
-    console.error('=== COMPLAINT CREATION ERROR ===');
-    console.error('Name:', err.name);
-    console.error('Message:', err.message);
     if (err.name === 'ValidationError') {
       const messages = Object.values(err.errors).map((e) => e.message);
-      return res.status(400).json({ message: 'Validation failed', errors: messages });
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: messages });
     }
     if (err instanceof SyntaxError) {
-      return res.status(400).json({ message: 'Invalid location data' });
+      return res.status(400).json({ success: false, message: 'Invalid location data' });
     }
     next(err);
   }
@@ -66,7 +69,7 @@ const getComplaints = async (req, res, next) => {
   try {
     const { village, ward, status, category } = req.query;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
     const filter = {};
@@ -83,7 +86,7 @@ const getComplaints = async (req, res, next) => {
       .populate('createdBy', 'name email')
       .populate('resolvedBy', 'name role');
 
-    res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
+    res.status(200).json({ success: true, complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
   } catch (err) {
     next(err);
   }
@@ -97,13 +100,13 @@ const getComplaintById = async (req, res, next) => {
       .populate('assignedTo', 'name role');
 
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     const comments = await Comment.find({ complaintId: req.params.id })
       .populate('userId', 'name role');
 
-    res.status(200).json({ complaint, comments });
+    res.status(200).json({ success: true, complaint, comments });
   } catch (err) {
     next(err);
   }
@@ -113,7 +116,7 @@ const upvoteComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     const userId = req.user._id;
@@ -122,11 +125,11 @@ const upvoteComplaint = async (req, res, next) => {
     if (alreadyUpvoted) {
       complaint.upvotes.pull(userId);
       await complaint.save();
-      return res.status(200).json({ message: 'Upvote removed', upvoteCount: complaint.upvotes.length });
+      return res.status(200).json({ success: true, message: 'Upvote removed', upvoteCount: complaint.upvotes.length });
     } else {
       complaint.upvotes.push(userId);
       await complaint.save();
-      return res.status(200).json({ message: 'Upvote added', upvoteCount: complaint.upvotes.length });
+      return res.status(200).json({ success: true, message: 'Upvote added', upvoteCount: complaint.upvotes.length });
     }
   } catch (err) {
     next(err);
@@ -135,6 +138,11 @@ const upvoteComplaint = async (req, res, next) => {
 
 const addComment = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const { message } = req.body;
     const isOfficial = ['ward_member', 'gram_pradhan'].includes(req.user.role);
 
@@ -147,7 +155,7 @@ const addComment = async (req, res, next) => {
 
     comment = await comment.populate('userId', 'name role');
 
-    res.status(201).json(comment);
+    res.status(201).json({ success: true, comment });
   } catch (err) {
     next(err);
   }
@@ -158,7 +166,7 @@ const getMyComplaints = async (req, res, next) => {
     const complaints = await Complaint.find({ createdBy: req.user._id })
       .populate('resolvedBy', 'name role')
       .sort({ createdAt: -1 });
-    res.status(200).json({ complaints });
+    res.status(200).json({ success: true, complaints });
   } catch (err) {
     next(err);
   }
@@ -166,23 +174,28 @@ const getMyComplaints = async (req, res, next) => {
 
 const updateComplaintStatus = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+    }
+
     const { status, rejectionReason, assignedTo, resolutionRemarks, resolutionImages } = req.body;
-    const validStatuses = ['pending', 'approved', 'rejected', 'in_progress', 'resolved', 'citizen_verification_pending', 'reopened', 'awaiting_citizen_response', 'closed'];
+    const validStatuses = ['pending', 'approved', 'rejected', 'in_progress', 'resolved'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status value' });
+      return res.status(400).json({ success: false, message: 'Invalid status value' });
     }
 
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     if (status === 'rejected' && !rejectionReason) {
-      return res.status(400).json({ message: 'Rejection reason is required' });
+      return res.status(400).json({ success: false, message: 'Rejection reason is required' });
     }
 
     if (status === 'closed' || status === 'citizen_verification_pending') {
-      return res.status(400).json({ message: 'Status cannot be set directly. Use citizen verification flow.' });
+      return res.status(400).json({ success: false, message: 'Status cannot be set directly. Use citizen verification flow.' });
     }
 
     if (status === 'resolved') {
@@ -228,7 +241,7 @@ const updateComplaintStatus = async (req, res, next) => {
         }
       }
 
-      return res.status(200).json(populated);
+      return res.status(200).json({ success: true, complaint: populated });
     }
 
     complaint.status = status;
@@ -242,7 +255,7 @@ const updateComplaintStatus = async (req, res, next) => {
       .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
-    res.status(200).json(populated);
+    res.status(200).json({ success: true, complaint: populated });
   } catch (err) {
     next(err);
   }
@@ -252,15 +265,15 @@ const verifyComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     if (!['citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status)) {
-      return res.status(400).json({ message: 'Complaint is not pending citizen verification' });
+      return res.status(400).json({ success: false, message: 'Complaint is not pending citizen verification' });
     }
 
     if (!complaint.createdBy.equals(req.user._id)) {
-      return res.status(403).json({ message: 'Only the complaint creator can verify resolution' });
+      return res.status(403).json({ success: false, message: 'Only the complaint creator can verify resolution' });
     }
 
     complaint.status = 'closed';
@@ -283,7 +296,7 @@ const verifyComplaint = async (req, res, next) => {
       .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
-    res.status(200).json({ message: 'Complaint closed successfully', complaint: populated });
+    res.status(200).json({ success: true, message: 'Complaint closed successfully', complaint: populated });
   } catch (err) {
     next(err);
   }
@@ -294,15 +307,15 @@ const reopenComplaint = async (req, res, next) => {
     const { citizenFeedback } = req.body;
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     if (!['citizen_verification_pending', 'awaiting_citizen_response'].includes(complaint.status)) {
-      return res.status(400).json({ message: 'Complaint is not pending citizen verification' });
+      return res.status(400).json({ success: false, message: 'Complaint is not pending citizen verification' });
     }
 
     if (!complaint.createdBy.equals(req.user._id)) {
-      return res.status(403).json({ message: 'Only the complaint creator can reject resolution' });
+      return res.status(403).json({ success: false, message: 'Only the complaint creator can reject resolution' });
     }
 
     complaint.status = 'reopened';
@@ -346,7 +359,7 @@ const reopenComplaint = async (req, res, next) => {
       .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
-    res.status(200).json({ message: 'Complaint reopened for further action', complaint: populated });
+    res.status(200).json({ success: true, message: 'Complaint reopened for further action', complaint: populated });
   } catch (err) {
     next(err);
   }
@@ -357,7 +370,7 @@ const getVerificationHistory = async (req, res, next) => {
     const auditLogs = await AuditLog.find({ complaintId: req.params.id })
       .populate('userId', 'name role')
       .sort({ timestamp: -1 });
-    res.status(200).json({ auditLogs });
+    res.status(200).json({ success: true, auditLogs });
   } catch (err) {
     next(err);
   }
@@ -371,7 +384,7 @@ const getVerificationPendingComplaints = async (req, res, next) => {
     })
       .populate('resolvedBy', 'name role')
       .sort({ updatedAt: -1 });
-    res.status(200).json({ complaints });
+    res.status(200).json({ success: true, complaints });
   } catch (err) {
     next(err);
   }
@@ -386,7 +399,7 @@ const getAllAuditLogs = async (req, res, next) => {
       .populate('userId', 'name role')
       .populate('complaintId', 'title')
       .sort({ timestamp: -1 });
-    res.status(200).json({ auditLogs });
+    res.status(200).json({ success: true, auditLogs });
   } catch (err) {
     next(err);
   }
@@ -396,7 +409,7 @@ const getWardComplaints = async (req, res, next) => {
   try {
     const { status } = req.query;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
     const filter = { ward: req.user.ward };
@@ -410,7 +423,7 @@ const getWardComplaints = async (req, res, next) => {
       .populate('createdBy', 'name email')
       .populate('resolvedBy', 'name role');
 
-    res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
+    res.status(200).json({ success: true, complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
   } catch (err) {
     next(err);
   }
@@ -420,7 +433,7 @@ const getAllComplaintsAdmin = async (req, res, next) => {
   try {
     const { status, category, village, ward } = req.query;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
     const filter = {};
@@ -438,7 +451,7 @@ const getAllComplaintsAdmin = async (req, res, next) => {
       .populate('resolvedBy', 'name role')
       .populate('assignedTo', 'name role');
 
-    res.status(200).json({ complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
+    res.status(200).json({ success: true, complaints, totalCount, page, pages: Math.ceil(totalCount / limit) });
   } catch (err) {
     next(err);
   }
@@ -448,13 +461,13 @@ const deleteComplaint = async (req, res, next) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
     const isOwner = complaint.createdBy.equals(req.user._id);
     const isAdmin = req.user.role === 'admin';
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: 'Not authorized to delete this complaint' });
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this complaint' });
     }
 
     for (const url of complaint.images) {
@@ -468,7 +481,7 @@ const deleteComplaint = async (req, res, next) => {
     await Comment.deleteMany({ complaintId: complaint._id });
     await complaint.deleteOne();
 
-    res.status(200).json({ message: 'Complaint deleted' });
+    res.status(200).json({ success: true, message: 'Complaint deleted' });
   } catch (err) {
     next(err);
   }
