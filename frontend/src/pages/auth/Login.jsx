@@ -98,7 +98,7 @@ function Login() {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4  w-[84%]">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8  w-[84%]">
                 <FormField
                   control={form.control}
                   name="email"

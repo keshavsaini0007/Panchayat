@@ -159,7 +159,7 @@ function Register() {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSendOtp)} className="space-y-4  w-[84%]">
+              <form onSubmit={form.handleSubmit(handleSendOtp)} className="space-y-8  w-[84%]">
                 <FormField
                   control={form.control}
                   name="name"
