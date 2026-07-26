@@ -35,7 +35,7 @@ function AppContent() {
       <div className="relative min-h-screen">
         <Suspense fallback={null}><Globe /></Suspense>
         <Navbar />
-        <main className="min-h-[90vh] relative z-[1]">
+        <main className="min-h-[89vh] relative z-[1]">
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
               <AnimatePresence mode="wait">

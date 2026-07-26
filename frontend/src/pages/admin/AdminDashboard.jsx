@@ -184,13 +184,13 @@ function AdminDashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={sortedByCategory} layout="vertical" margin={{ left: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis type="number" className="text-xs text-muted-foreground" />
+                <XAxis type="number" className="text-xs text-[hsl(0deg_3.43%_78.16%)]" />
                 <YAxis
                   type="category"
                   dataKey="_id"
                   tick={{ fontSize: 11 }}
                   width={100}
-                  className="text-xs text-muted-foreground"
+                  className="text-xs text-[hsl(0deg_3.43%_78.16%)]"
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
@@ -245,9 +245,9 @@ function AdminDashboard() {
                   tick={{ fontSize: 11 }}
                   angle={-30}
                   textAnchor="end"
-                  className="text-xs text-muted-foreground"
+                  className="text-xs text-[hsl(0deg_3.43%_78.16%)]"
                 />
-                <YAxis className="text-xs text-muted-foreground" />
+                <YAxis className="text-xs text-[hsl(0deg_3.43%_78.16%)]" />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
