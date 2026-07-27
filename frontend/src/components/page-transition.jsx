@@ -28,6 +28,7 @@ export function PageTransition({ children, className }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const itemVariants = {
   initial: { opacity: 0, y: 20 },
   animate: {
@@ -37,12 +38,14 @@ export const itemVariants = {
   },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const containerVariants = {
   animate: {
     transition: { staggerChildren: 0.07 },
   },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: {

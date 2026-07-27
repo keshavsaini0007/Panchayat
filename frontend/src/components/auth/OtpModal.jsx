@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Loader2, Check, AlertCircle, X, Clock, ArrowLeft } from "lucide-react";
+import { Loader2, Check, AlertCircle, Clock, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,

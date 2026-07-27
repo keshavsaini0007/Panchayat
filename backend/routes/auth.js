@@ -4,6 +4,7 @@ const router = express.Router();
 const { registerUser, loginUser, getMe } = require('../controllers/authController');
 const { sendOtp, verifyOtp } = require('../controllers/otpController');
 const { protect, addToBlacklist } = require('../middlewares/authMiddleware');
+const { ApiResponse } = require('../utils/ApiResponse');
 
 const registerValidation = [
   body('name').trim().notEmpty().withMessage('Name is required'),
@@ -34,7 +35,7 @@ router.post('/login', loginValidation, loginUser);
 router.post('/logout', protect, (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader) addToBlacklist(authHeader.split(' ')[1]);
-  res.status(200).json({ success: true, message: 'Logged out successfully' });
+  res.status(200).json(new ApiResponse(200, null, 'Logged out successfully'));
 });
 router.get('/me', protect, getMe);
 

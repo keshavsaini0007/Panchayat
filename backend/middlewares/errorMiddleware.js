@@ -1,3 +1,5 @@
+const { ApiError } = require('../utils/ApiError');
+
 const errorHandler = (err, req, res, next) => {
   console.error(`[ERROR] ${err.name}: ${err.message}`, err.stack);
 
@@ -39,9 +41,7 @@ const errorHandler = (err, req, res, next) => {
 };
 
 const notFound = (req, res, next) => {
-  const error = new Error('Route not found: ' + req.originalUrl);
-  error.statusCode = 404;
-  next(error);
+  next(new ApiError(404, 'Route not found: ' + req.originalUrl));
 };
 
 module.exports = { errorHandler, notFound };

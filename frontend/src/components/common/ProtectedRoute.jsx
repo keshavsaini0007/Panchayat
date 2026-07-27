@@ -11,8 +11,14 @@ function ProtectedRoute({ children, roles }) {
   const toastShownRef = useRef(false);
 
   useEffect(() => {
-    toastShownRef.current = false;
-  }, [location.pathname]);
+    if (!user && !toastShownRef.current) {
+      toastShownRef.current = true;
+      toast({ title: "Login required", description: "Please login to access this page", variant: "destructive" });
+    } else if (roles && user && !roles.includes(user.role) && !toastShownRef.current) {
+      toastShownRef.current = true;
+      toast({ title: "Access denied", description: "You do not have permission to access this page", variant: "destructive" });
+    }
+  }, [user, roles, location.pathname]);
 
   if (isLoading) {
     return (
@@ -23,18 +29,10 @@ function ProtectedRoute({ children, roles }) {
   }
 
   if (!user) {
-    if (!toastShownRef.current) {
-      toastShownRef.current = true;
-      toast({ title: "Login required", description: "Please login to access this page", variant: "destructive" });
-    }
     return <Navigate to="/login" replace />;
   }
 
   if (roles && !roles.includes(user.role)) {
-    if (!toastShownRef.current) {
-      toastShownRef.current = true;
-      toast({ title: "Access denied", description: "You do not have permission to access this page", variant: "destructive" });
-    }
     return <Navigate to="/" replace />;
   }
 

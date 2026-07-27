@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Loader2, MapPin, Upload, X, Check, ChevronLeft, ChevronRight, Crosshair, AlertCircle,
+  Loader2, MapPin, Upload, X, Check, ChevronLeft, ChevronRight, Crosshair,
 } from "lucide-react";
 import { MapContainer, Marker, useMapEvents } from "react-leaflet";
 import { MapTileLayer } from "@/components/map/MapTileLayer";
@@ -21,7 +21,6 @@ import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -89,16 +88,18 @@ function SubmitComplaint() {
   const step1Form = useForm({ resolver });
   const [step2Location, setStep2Location] = useState("");
 
-  const canProceedFromStep1 = step === 1 && step1Form.formState.isValid;
-
-  useEffect(() => {
+  const restoreStep1Data = useCallback(() => {
     if (step === 1 && step1Data) {
       const values = step1Form.getValues();
       Object.entries(step1Data).forEach(([key, val]) => {
         if (values[key] !== val) step1Form.setValue(key, val);
       });
     }
-  }, [step, step1Data]);
+  }, [step, step1Data, step1Form]);
+
+  useEffect(() => {
+    restoreStep1Data();
+  }, [restoreStep1Data]);
 
   const handleStep1Next = async () => {
     const valid = await step1Form.trigger();
@@ -198,7 +199,7 @@ function SubmitComplaint() {
   const removeImage = (id) => {
     setImages((prev) => {
       const img = prev.find((i) => i.id === id);
-      if (img) { try { URL.revokeObjectURL(img.preview); } catch {} }
+      if (img) { try { URL.revokeObjectURL(img.preview); } catch { /* cleanup */ } }
       const updated = prev.filter((i) => i.id !== id);
       imagesRef.current = updated;
       return updated;
@@ -299,7 +300,7 @@ function SubmitComplaint() {
   useEffect(() => {
     return () => {
       imagesRef.current.forEach((img) => {
-        try { URL.revokeObjectURL(img.preview); } catch {}
+        try { URL.revokeObjectURL(img.preview); } catch { /* cleanup */ }
       });
     };
   }, []);

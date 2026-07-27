@@ -125,6 +125,7 @@ const FormMessage = React.forwardRef(({ className, children, ...props }, ref) =>
 })
 FormMessage.displayName = "FormMessage"
 
+/* eslint-disable react-refresh/only-export-components */
 export {
   useFormField,
   Form,

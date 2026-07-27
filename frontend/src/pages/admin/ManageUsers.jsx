@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Trash2, Inbox, Loader2, Shield, ShieldAlert, UserCheck, UserCog } from "lucide-react";
+import { Search, Trash2, Inbox, Loader2, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { getAllUsers, updateUserRole, deleteUser } from "@/services/adminService";
@@ -9,7 +9,7 @@ import { PageTransition } from "@/components/page-transition";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";

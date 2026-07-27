@@ -9,18 +9,19 @@ const {
 } = require('../controllers/complaintController');
 const { protect, authorizeRoles } = require('../middlewares/authMiddleware');
 const { upload, MAX_IMAGES } = require('../config/cloudinary');
+const { ApiError } = require('../utils/ApiError');
 
 const handleUpload = (req, res, next) => {
   const uploadMiddleware = upload.array('images', MAX_IMAGES);
   uploadMiddleware(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ success: false, message: 'Image size cannot exceed 5 MB.' });
+        return next(new ApiError(400, 'Image size cannot exceed 5 MB.'));
       }
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return res.status(400).json({ success: false, message: `Maximum ${MAX_IMAGES} images allowed.` });
+        return next(new ApiError(400, `Maximum ${MAX_IMAGES} images allowed.`));
       }
-      return res.status(err.statusCode || 400).json({ success: false, message: err.message });
+      return next(new ApiError(err.statusCode || 400, err.message));
     }
     next();
   });

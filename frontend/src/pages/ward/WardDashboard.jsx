@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, ThumbsUp, Calendar, ChevronDown, X, Loader2 } from "lucide-react";
+import { Eye, ThumbsUp, Calendar, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { getWardComplaints, updateStatus } from "@/services/complaintService";
@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,6 @@ function WardDashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("date");
-  const fetchingRef = useRef(false);
   const [modal, setModal] = useState(null);
   const [modalStatus, setModalStatus] = useState("");
   const [modalReason, setModalReason] = useState("");

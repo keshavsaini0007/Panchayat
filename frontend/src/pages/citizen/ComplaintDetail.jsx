@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ThumbsUp, MapPin, Calendar, User, X, ChevronLeft, Send, ExternalLink, CheckCircle, AlertTriangle, Clock, Loader2,
+  ThumbsUp, MapPin, Calendar, User, ChevronLeft, Send, ExternalLink, CheckCircle, AlertTriangle, Clock, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { MapContainer, Marker } from "react-leaflet";
@@ -20,14 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
+  Dialog, DialogContent,
 } from "@/components/ui/dialog";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -99,7 +98,7 @@ function ComplaintDetail() {
     setSubmittingComment(true);
     try {
       const res = await addComment(id, commentText);
-      setComments((prev) => [...prev, res.data]);
+      setComments((prev) => [...prev, res.data.comment]);
       setCommentText("");
       toast({ title: "Comment added" });
     } catch (err) {
@@ -117,7 +116,7 @@ function ComplaintDetail() {
       if (newStatus === "rejected") payload.rejectionReason = reason;
       if (newStatus === "resolved") payload.resolutionRemarks = reason;
       const res = await updateStatus(id, payload);
-      setComplaint(res.data);
+      setComplaint(res.data.complaint);
       setNewStatus("");
       setReason("");
       toast({ title: "Status updated" });

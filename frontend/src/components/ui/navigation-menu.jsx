@@ -91,6 +91,7 @@ const NavigationMenuIndicator = React.forwardRef(({ className, ...props }, ref) 
 NavigationMenuIndicator.displayName =
   NavigationMenuPrimitive.Indicator.displayName
 
+/* eslint-disable react-refresh/only-export-components */
 export {
   navigationMenuTriggerStyle,
   NavigationMenu,
