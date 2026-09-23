@@ -35,7 +35,7 @@ const formSchema = z
     phone: z.string().regex(/^\d{10}$/, "Phone must be 10 digits"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
-    role: z.enum(["citizen", "ward_member", "gram_pradhan"]),
+    role: z.enum(["citizen"]),
     village: z.string().min(1, "Village is required"),
     ward: z.string().min(1, "Ward is required"),
   })
@@ -258,8 +258,6 @@ function Register() {
                           </SelectTrigger>
                           <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
                             <SelectItem className="focus:bg-zinc-800 focus:text-white" value="citizen">Citizen</SelectItem>
-                            <SelectItem className="focus:bg-zinc-800 focus:text-white" value="ward_member">Ward Member</SelectItem>
-                            <SelectItem className="focus:bg-zinc-800 focus:text-white" value="gram_pradhan">Gram Pradhan</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>

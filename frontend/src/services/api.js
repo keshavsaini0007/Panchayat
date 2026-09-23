@@ -31,8 +31,11 @@ api.interceptors.response.use(
       return Promise.reject(new Error('Network error. Please check your connection.'));
     }
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const hadToken = Boolean(error.config?.headers?.Authorization);
+      if (hadToken && window.location.pathname !== "/login") {
+        useAuthStore.getState().logout();
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },
