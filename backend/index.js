@@ -33,17 +33,19 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
   message: { success: false, message: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || 20,
   message: { success: false, message: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
