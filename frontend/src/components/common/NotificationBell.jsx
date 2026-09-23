@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, RefreshCw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -42,6 +42,12 @@ function NotificationBell() {
       setLoading(false);
     }
   }, []);
+
+  // Badge must reflect unread count as soon as the page loads — not only after
+  // the dropdown is first opened.
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const handleOpenChange = (isOpen) => {
     setOpen(isOpen);
