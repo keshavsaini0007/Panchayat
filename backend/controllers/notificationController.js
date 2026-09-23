@@ -7,7 +7,7 @@ const getMyNotifications = asyncHandler(async (req, res, next) => {
   const notifications = await Notification.find({ userId: req.user._id })
     .populate('complaintId', 'title status')
     .sort({ createdAt: -1 });
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = await Notification.countDocuments({ userId: req.user._id, read: false });
   res.status(200).json(new ApiResponse(200, { notifications, unreadCount }));
 });
 

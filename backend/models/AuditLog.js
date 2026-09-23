@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema({
   complaintId: { type: mongoose.Schema.Types.ObjectId, ref: 'Complaint', required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // null = system action
   role: { type: String, required: true },
   action: {
     type: String, required: true,
