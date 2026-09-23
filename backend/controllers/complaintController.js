@@ -12,6 +12,20 @@ const { asyncHandler } = require('../utils/asyncHandler');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+/**
+ * Extract the Cloudinary public_id from a stored image URL.
+ * Handles the `/upload/<version>/` prefix and folders: panchayat/complaints/<id>
+ */
+const getCloudinaryPublicId = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const marker = '/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  let rest = url.slice(idx + marker.length);
+  rest = rest.replace(/^v\d+\//, ''); // strip the version segment
+  return rest.replace(/\.[^/.]+$/, ''); // strip the file extension
+};
+
 const createComplaint = asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -30,6 +44,14 @@ const createComplaint = asyncHandler(async (req, res, next) => {
     throw new ApiError(400, 'Invalid location data');
   }
 
+  const lat = Number(location?.lat);
+  const lng = Number(location?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new ApiError(400, 'Location must include valid latitude and longitude');
+  }
+  location.lat = lat;
+  location.lng = lng;
+
   const images = [];
   if (req.files) {
     for (const file of req.files) {
@@ -45,9 +67,8 @@ const createComplaint = asyncHandler(async (req, res, next) => {
     }
     if (images.length > MAX_IMAGES) {
       for (const url of images) {
-        const segments = url.split('/upload/');
-        if (segments.length > 1) {
-          const publicId = segments[1].split('.')[0];
+        const publicId = getCloudinaryPublicId(url);
+        if (publicId) {
           await cloudinary.uploader.destroy(publicId);
         }
       }
@@ -80,7 +101,7 @@ const getComplaints = asyncHandler(async (req, res, next) => {
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .populate('createdBy', 'name email')
+    .populate('createdBy', 'name')
     .populate('resolvedBy', 'name role');
 
   res.status(200).json(new ApiResponse(200, { complaints, totalCount, page, pages: Math.ceil(totalCount / limit) }));
@@ -88,7 +109,7 @@ const getComplaints = asyncHandler(async (req, res, next) => {
 
 const getComplaintById = asyncHandler(async (req, res, next) => {
   const complaint = await Complaint.findById(req.params.id)
-    .populate('createdBy', 'name email')
+    .populate('createdBy', 'name')
     .populate('resolvedBy', 'name role')
     .populate('assignedTo', 'name role');
 
@@ -103,29 +124,46 @@ const getComplaintById = asyncHandler(async (req, res, next) => {
 });
 
 const upvoteComplaint = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+
   const complaint = await Complaint.findById(req.params.id);
   if (!complaint) {
     throw new ApiError(404, 'Complaint not found');
   }
 
-  const userId = req.user._id;
   const alreadyUpvoted = complaint.upvotes.some((id) => id.equals(userId));
 
+  let updated;
   if (alreadyUpvoted) {
-    complaint.upvotes.pull(userId);
-    await complaint.save();
-    return res.status(200).json(new ApiResponse(200, { upvoteCount: complaint.upvotes.length }, 'Upvote removed'));
+    updated = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { upvotes: userId }, $set: { updatedAt: Date.now() } },
+      { returnDocument: 'after' }
+    );
   } else {
-    complaint.upvotes.push(userId);
-    await complaint.save();
-    return res.status(200).json(new ApiResponse(200, { upvoteCount: complaint.upvotes.length }, 'Upvote added'));
+    updated = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { upvotes: userId }, $set: { updatedAt: Date.now() } },
+      { returnDocument: 'after' }
+    );
   }
+
+  res.status(200).json(new ApiResponse(
+    200,
+    { upvoteCount: (updated && updated.upvotes.length) || 0 },
+    alreadyUpvoted ? 'Upvote removed' : 'Upvote added'
+  ));
 });
 
 const addComment = asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     throw new ApiError(400, 'Validation failed', errors.array());
+  }
+
+  const complaint = await Complaint.findById(req.params.id);
+  if (!complaint) {
+    throw new ApiError(404, 'Complaint not found');
   }
 
   const { message } = req.body;
@@ -165,6 +203,11 @@ const updateComplaintStatus = asyncHandler(async (req, res, next) => {
   const complaint = await Complaint.findById(req.params.id);
   if (!complaint) {
     throw new ApiError(404, 'Complaint not found');
+  }
+
+  // Officials may only manage complaints within their own ward; admins are exempt.
+  if (req.user.role !== 'admin' && complaint.ward !== req.user.ward) {
+    throw new ApiError(403, 'You can only manage complaints in your own ward');
   }
 
   if (status === 'rejected' && !rejectionReason) {
@@ -416,14 +459,15 @@ const deleteComplaint = asyncHandler(async (req, res, next) => {
   }
 
   for (const url of complaint.images) {
-    const segments = url.split('/upload/');
-    if (segments.length > 1) {
-      const publicId = segments[1].split('.')[0];
+    const publicId = getCloudinaryPublicId(url);
+    if (publicId) {
       await cloudinary.uploader.destroy(publicId);
     }
   }
 
   await Comment.deleteMany({ complaintId: complaint._id });
+  await Notification.deleteMany({ complaintId: complaint._id });
+  await AuditLog.deleteMany({ complaintId: complaint._id });
   await complaint.deleteOne();
 
   res.status(200).json(new ApiResponse(200, null, 'Complaint deleted'));
