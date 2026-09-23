@@ -3,33 +3,38 @@ const AuditLog = require('../models/AuditLog');
 const Notification = require('../models/Notification');
 
 const BATCH_SIZE = 100;
+const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+const FIFTEEN_DAYS = 15 * 24 * 60 * 60 * 1000;
 
 const runAutoEscalation = async () => {
   try {
     const now = Date.now();
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-    const FIFTEEN_DAYS = 15 * 24 * 60 * 60 * 1000;
 
-    let skip = 0;
+    // Cursor-based pagination on _id avoids skipping documents when
+    // their status mutates mid-batch (skip/limit over a changing filter).
+    let lastId = null;
     let hasMore = true;
 
     while (hasMore) {
-      const complaints = await Complaint.find({
+      const filter = {
         status: 'citizen_verification_pending',
         resolvedAt: { $ne: null },
-      })
-        .populate('createdBy', 'name email')
-        .skip(skip)
-        .limit(BATCH_SIZE);
+        ...(lastId ? { _id: { $gt: lastId } } : {}),
+      };
+
+      const complaints = await Complaint.find(filter)
+        .sort({ _id: 1 })
+        .limit(BATCH_SIZE)
+        .populate('createdBy', 'name email');
 
       if (complaints.length === 0) {
         hasMore = false;
         continue;
       }
+      lastId = complaints[complaints.length - 1]._id;
 
       for (const complaint of complaints) {
         const elapsed = now - new Date(complaint.resolvedAt).getTime();
-        const originalStatus = complaint.status;
 
         if (elapsed >= SEVEN_DAYS && elapsed < FIFTEEN_DAYS && complaint.status === 'citizen_verification_pending') {
           complaint.status = 'awaiting_citizen_response';
@@ -73,8 +78,6 @@ const runAutoEscalation = async () => {
           }
         }
       }
-
-      skip += BATCH_SIZE;
     }
   } catch (err) {
     console.error('Auto-escalation error:', err);
@@ -85,7 +88,8 @@ const startAutoEscalationScheduler = () => {
   console.log('Auto-escalation scheduler started (running every hour)');
   runAutoEscalation();
   const interval = setInterval(runAutoEscalation, 60 * 60 * 1000);
+  interval.unref();
   return interval;
 };
 
-module.exports = { startAutoEscalationScheduler };
+module.exports = { startAutoEscalationScheduler, runAutoEscalation };
