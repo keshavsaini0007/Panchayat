@@ -543,7 +543,19 @@ function SubmitComplaint() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ChevronLeft className="mr-1 h-4 w-4" /> Back
               </Button>
-              <Button onClick={() => setStep(3)}>
+              <Button
+                onClick={() => {
+                  if (!marker) {
+                    toast({
+                      title: "Location required",
+                      description: "Please pin the complaint location on the map before continuing.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setStep(3);
+                }}
+              >
                 Next <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>

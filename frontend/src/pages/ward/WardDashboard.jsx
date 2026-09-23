@@ -98,7 +98,7 @@ function WardDashboard() {
     if (modalAssign) payload.assignedTo = modalAssign;
     try {
       const res = await updateStatus(modal._id, payload);
-      setComplaints((prev) => prev.map((c) => (c._id === modal._id ? res.data : c)));
+      setComplaints((prev) => prev.map((c) => (c._id === modal._id ? res.data.complaint : c)));
       setModal(null);
       setModalStatus("");
       setModalReason("");
@@ -243,7 +243,9 @@ function WardDashboard() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COMPLAINT_STATUSES.filter((s) => !["citizen_verification_pending", "awaiting_citizen_response", "closed"].includes(s.value)).map((s) => (
+                  {COMPLAINT_STATUSES.filter((s) =>
+                    ["pending", "approved", "rejected", "in_progress", "resolved"].includes(s.value)
+                  ).map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>

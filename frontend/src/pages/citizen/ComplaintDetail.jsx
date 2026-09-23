@@ -87,7 +87,6 @@ function ComplaintDetail() {
     try {
       const res = await upvoteComplaint(id);
       setComplaint((prev) => ({ ...prev, upvoteCount: res.data.upvoteCount }));
-      toast({ title: res.data.message });
     } catch {
       toast({ title: "Failed to upvote", variant: "destructive" });
     }
@@ -362,7 +361,9 @@ function ComplaintDetail() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COMPLAINT_STATUSES.filter((s) => !["citizen_verification_pending", "awaiting_citizen_response", "closed"].includes(s.value) || s.value === "resolved").map((s) => (
+                  {COMPLAINT_STATUSES.filter((s) =>
+                    ["pending", "approved", "rejected", "in_progress", "resolved"].includes(s.value)
+                  ).map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
