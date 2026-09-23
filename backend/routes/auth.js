@@ -11,7 +11,7 @@ const registerValidation = [
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
   body('phone').trim().notEmpty().withMessage('Phone number is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').optional().isIn(['citizen', 'ward_member', 'gram_pradhan']).withMessage('Invalid role'),
+  body('role').optional().isIn(['citizen']).withMessage('Role must be citizen'),
 ];
 
 const loginValidation = [

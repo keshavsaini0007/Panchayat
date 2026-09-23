@@ -3,19 +3,37 @@ const User = require('../models/User');
 const { ApiError } = require('../utils/ApiError');
 const { asyncHandler } = require('../utils/asyncHandler');
 
-const blacklistedTokens = new Set();
+// token -> unix-ms expiry. Tokens stay revoked until they expire naturally,
+// instead of being wiped wholesale every 24h (which resurrected 7-day tokens).
+const blacklistedTokens = new Map();
 
 const addToBlacklist = (token) => {
-  blacklistedTokens.add(token);
+  try {
+    const decoded = jwt.decode(token);
+    const expiresAt = decoded && decoded.exp ? decoded.exp * 1000 : Date.now() + 24 * 60 * 60 * 1000;
+    blacklistedTokens.set(token, expiresAt);
+  } catch {
+    blacklistedTokens.set(token, Date.now() + 24 * 60 * 60 * 1000);
+  }
 };
 
 const isBlacklisted = (token) => {
-  return blacklistedTokens.has(token);
+  const expiresAt = blacklistedTokens.get(token);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    blacklistedTokens.delete(token);
+    return false;
+  }
+  return true;
 };
 
+// Periodically purge only expired/redundant entries.
 setInterval(() => {
-  blacklistedTokens.clear();
-}, 24 * 60 * 60 * 1000);
+  const now = Date.now();
+  for (const [token, expiresAt] of blacklistedTokens.entries()) {
+    if (expiresAt <= now) blacklistedTokens.delete(token);
+  }
+}, 60 * 60 * 1000).unref();
 
 const protect = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;

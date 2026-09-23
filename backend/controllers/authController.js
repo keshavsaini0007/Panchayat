@@ -26,10 +26,12 @@ const registerUser = asyncHandler(async (req, res, next) => {
 
   await OtpVerification.deleteMany({ email });
 
-  const isVerified = role === 'ward_member' || role === 'gram_pradhan' ? false : true;
-
+  // Official roles are only assignable by an admin. Self-registration is always a verified citizen.
   const user = await User.create({
-    name, email, phone, password, role, isVerified, village, ward,
+    name, email, phone, password,
+    role: 'citizen',
+    isVerified: true,
+    village, ward,
     emailVerified: true,
   });
 
@@ -52,6 +54,10 @@ const loginUser = asyncHandler(async (req, res, next) => {
   const user = await User.findOne({ email });
   if (!user || !(await user.matchPassword(password))) {
     throw new ApiError(401, 'Invalid credentials');
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, 'Your account is pending verification. Contact the administrator.');
   }
 
   const token = generateToken(user._id, user.role);
